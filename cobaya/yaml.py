@@ -13,10 +13,7 @@ Customization of YAML's loaded and dumper:
 # Global
 import os
 import re
-import yaml
 import numpy as np
-from yaml.resolver import BaseResolver
-from yaml.constructor import ConstructorError
 from collections import OrderedDict
 from typing import Mapping, Optional, Any
 
@@ -25,6 +22,12 @@ from cobaya.tools import prepare_comment, recursive_update
 from cobaya.conventions import Extension
 from cobaya.typing import InfoDict
 
+
+import sys
+sys.path.append("~/anaconda3/envs/cosmo/bin")
+import yaml
+from yaml.resolver import BaseResolver
+from yaml.constructor import ConstructorError
 
 # Exceptions #############################################################################
 
