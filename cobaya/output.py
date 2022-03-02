@@ -14,7 +14,7 @@ import shutil
 from packaging import version
 from typing import Optional, Any
 # Local
-from cobaya.yaml import yaml_dump, yaml_load, yaml_load_file, \
+from cobaya.yamll import yaml_dump, yaml_load, yaml_load_file, \
     OutputError, InputImportError
 from cobaya.conventions import resume_default, Extension, kinds, get_version
 from cobaya.typing import InputDict

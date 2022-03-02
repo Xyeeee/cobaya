@@ -23,7 +23,7 @@ from cobaya.typing import empty_dict
 from cobaya.samplers.mcmc.proposal import BlockedProposer
 from cobaya.log import LoggedError, always_stop_exceptions
 from cobaya.tools import get_external_function, NumberWithUnits, load_DataFrame
-from cobaya.yaml import yaml_dump_file
+from cobaya.yamll import yaml_dump_file
 from cobaya.model import LogPosterior
 from cobaya import mpi
 

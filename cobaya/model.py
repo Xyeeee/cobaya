@@ -27,7 +27,7 @@ from cobaya.likelihood import LikelihoodCollection, AbsorbUnusedParamsLikelihood
     is_LikelihoodInterface
 from cobaya.theory import TheoryCollection, Theory, Provider
 from cobaya.log import LoggedError, logger_setup, get_logger, is_debug, HasLogger
-from cobaya.yaml import yaml_dump
+from cobaya.yamll import yaml_dump
 from cobaya.tools import deepcopy_where_possible, are_different_params_lists, \
     str_to_list, sort_parameter_blocks, recursive_update, sort_cosmetic
 from cobaya import mpi

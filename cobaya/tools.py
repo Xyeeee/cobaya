@@ -968,7 +968,7 @@ def load_config_file():
     Returns the config info, stored in the config file, or an empty dict if not present.
     """
     # Just-in-time import to avoid recursion
-    from cobaya.yaml import yaml_load_file
+    from cobaya.yamll import yaml_load_file
     try:
         return yaml_load_file(
             os.path.join(get_config_path(), packages_path_config_file))
@@ -981,7 +981,7 @@ def write_config_file(config_info, append=True):
     Writes the given info into the config file.
     """
     # Just-in-time import to avoid recursion
-    from cobaya.yaml import yaml_dump_file
+    from cobaya.yamll import yaml_dump_file
     try:
         info = {}
         if append:

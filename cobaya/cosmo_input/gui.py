@@ -8,7 +8,7 @@ import numpy as np
 import io
 
 # Local
-from cobaya.yaml import yaml_dump
+from cobaya.yamll import yaml_dump
 from cobaya.cosmo_input import input_database
 from cobaya.cosmo_input.input_database import _combo_dict_text
 from cobaya.cosmo_input.autoselect_covmat import get_best_covmat, covmat_folders
@@ -358,7 +358,7 @@ class DefaultsDialog(QWidget):
         _indent = "  "
         defaults_txt = (kind + ":\n" + _indent + component + ":\n" +
                         2 * _indent + ("\n" + 2 * _indent).join(defaults_txt.split("\n")))
-        from cobaya.yaml import yaml_load
+        from cobaya.yamll import yaml_load
         self.display["python"].setText(pformat(yaml_load(defaults_txt)))
         self.display["yaml"].setText(defaults_txt)
         self.display["bibliography"].setText(get_bib_component(component, kind))

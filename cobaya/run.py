@@ -18,7 +18,7 @@ from cobaya.output import get_output
 from cobaya.model import Model, load_info_overrides
 from cobaya.sampler import get_sampler_name_and_class, check_sampler_info, Sampler
 from cobaya.log import logger_setup, is_debug, get_logger, LoggedError
-from cobaya.yaml import yaml_dump
+from cobaya.yamll import yaml_dump
 from cobaya.input import update_info
 from cobaya.tools import warn_deprecation, recursive_update, sort_cosmetic
 from cobaya.post import post, PostTuple

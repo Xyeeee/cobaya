@@ -24,7 +24,7 @@ from cobaya.mpi import is_main_process, share_mpi, sync_processes
 from cobaya.collection import SampleCollection
 from cobaya.log import LoggedError, get_logger
 from cobaya.install import download_github_release, NotInstalledError
-from cobaya.yaml import yaml_dump_file
+from cobaya.yamll import yaml_dump_file
 from cobaya.conventions import derived_par_name_separator, packages_path_arg, Extension
 
 
