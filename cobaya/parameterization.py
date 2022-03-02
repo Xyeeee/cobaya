@@ -14,7 +14,7 @@ from copy import deepcopy
 from typing import Mapping, Sequence, Dict, Set, List, Tuple, Any, Callable, Union
 
 # Local
-from cobaya.typing import ParamsDict, ParamDict, ParamInput, \
+from cobaya.typingg import ParamsDict, ParamDict, ParamInput, \
     ExpandedParamsDict, ParamValuesDict, partags
 from cobaya.tools import get_external_function, ensure_nolatex, is_valid_variable_name, \
     getfullargspec, deepcopy_where_possible, invert_dict, str_to_list

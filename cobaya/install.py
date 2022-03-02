@@ -31,7 +31,7 @@ from cobaya.conventions import code_path, data_path, packages_path_arg, \
     packages_path_config_file, packages_path_input
 from cobaya.mpi import set_mpi_disabled
 from cobaya.tools import resolve_packages_path
-from cobaya.typing import InputDict
+from cobaya.typingg import InputDict
 
 log = get_logger("install")
 

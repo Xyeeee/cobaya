@@ -13,7 +13,7 @@ import os
 # Local
 from cobaya.conventions import packages_path_arg, packages_path_arg_posix, get_version, \
     packages_path_input
-from cobaya.typing import InputDict, LiteralFalse
+from cobaya.typingg import InputDict, LiteralFalse
 from cobaya.output import get_output
 from cobaya.model import Model, load_info_overrides
 from cobaya.sampler import get_sampler_name_and_class, check_sampler_info, Sampler

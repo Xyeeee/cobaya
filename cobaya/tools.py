@@ -33,7 +33,7 @@ from cobaya.conventions import cobaya_package, subfolders, kinds, \
     packages_path_config_file, packages_path_env, packages_path_arg, dump_sort_cosmetic, \
     packages_path_input
 from cobaya.log import LoggedError, HasLogger, get_logger
-from cobaya.typing import Kind
+from cobaya.typingg import Kind
 
 # Set up logger
 log = get_logger(__name__)

@@ -15,7 +15,8 @@ from itertools import chain
 from typing import Any, Callable, Optional
 from tempfile import gettempdir
 import re
-
+import os
+from anesthetic import MCMCSamples, NestedSamples
 # Local
 from cobaya.tools import read_dnumber, get_external_function, \
     find_with_regexp, NumberWithUnits, load_module, VersionCheckError
@@ -67,11 +68,13 @@ class polychord(Sampler):
                           "To install it, run 'cobaya-install polychord --%s "
                           "[packages_path]'", packages_path_arg)
         # Prepare arguments and settings
-        self.n_sampled = len(self.model.parameterization.sampled_params())
+        self.mode = "beta"
+        self.n_hyperparam = {"beta":1,"gamma":2,"delta":2}
+        self.n_sampled = len(self.model.parameterization.sampled_params()) + self.n_hyperparam[self.mode]
         self.n_derived = len(self.model.parameterization.derived_params())
         self.n_priors = len(self.model.prior)
         self.n_likes = len(self.model.likelihood)
-        self.nDims = self.model.prior.d()
+        self.nDims = self.model.prior.d() + self.n_hyperparam[self.mode]
         self.nDerived = (self.n_derived + self.n_priors + self.n_likes)
         if self.logzero is None:
             self.logzero = np.nan_to_num(-np.inf)
@@ -207,6 +210,54 @@ class polychord(Sampler):
         Prepares the posterior function and calls ``PolyChord``'s ``run`` function.
         """
 
+        """"
+        Placeholer distribution for proposal mean and sigma, will be plugged in via file reading from previous mcmc run 
+        once mcmc run succeeds
+        """
+        if not os.path.isdir('base'):
+            chains = 'https://pla.esac.esa.int/pla/aio/product-action?COSMOLOGY.FILE_ID=COM_CosmoParams_base-plikHM-TTTEEE-lowl-lowE_R3.00.zip'
+
+            import urllib.request
+
+            urllib.request.urlretrieve(chains, "chains.zip")
+
+            import zipfile
+
+            with zipfile.ZipFile("chains.zip", 'r') as zip_ref:
+                zip_ref.extractall(".")
+
+            os.remove("chains.zip")
+        # Load the planck samples into MCMCSamples object
+        root = 'base/plikHM_TTTEEE_lowl_lowE_lensing/base_plikHM_TTTEEE_lowl_lowE_lensing'
+        planck_samples = MCMCSamples(root=root)
+        planck_samples["beta"] = np.random.rand((planck_samples.shape[0]))
+        planck_samples.limits["beta"] = (0., 1.)
+
+        paramnames = np.append(planck_samples.columns, planck_samples.columns[-1])
+
+        mu = planck_samples[paramnames].mean().values
+        Sig = planck_samples[paramnames].cov().values
+        invSig = np.linalg.inv(Sig[:-1, :-1])
+
+        bounds = np.array([planck_samples.limits[p] for p in paramnames], dtype=float)
+
+        # Tightened prior bounds, will improve the convergence
+        improved_prior_bounds = np.zeros((len(paramnames), 2))
+        improved_prior_bounds[:, 0] = mu - 3 * np.sqrt(np.diag(Sig))
+        improved_prior_bounds[:, 1] = mu + 3 * np.sqrt(np.diag(Sig))
+        lower = bounds[:-1, 0]
+        upper = bounds[:-1, 1]
+
+        upper_new = improved_prior_bounds[:-1, 1]
+        lower_new = improved_prior_bounds[:-1, 0]
+        diff_og = upper - lower
+        diff_new = upper_new - lower_new
+
+        vol_og = np.prod(diff_og)
+        vol_new = np.prod(diff_new)
+
+        # Essentially what is needed here will be the sampled distribution means
+
         # Prepare the polychord likelihood
         def loglikelihood(params_values):
             result = self.model.logposterior(params_values)
@@ -219,17 +270,45 @@ class polychord(Sampler):
             derived = list(derived) + list(result.logpriors) + list(loglikes)
             return max(loglikes.sum(), self.pc_settings.logzero), derived
 
-        def prior(cube):
-            theta = np.empty_like(cube)
-            for i, xi in enumerate(np.array(cube)[self.ordering]):
-                theta[i] = self.model.prior.pdf[i].ppf(xi)
-            return theta
+        def loglikelihood_tilde(theta_full):
+            theta = theta_full[:-1]
+            beta = theta_full[-1]
+            return loglikelihood(theta)[0] + np.log(pi(theta) / pi_tilde(theta, beta)), []
+
+        def pi_tilde(theta, beta):
+            return beta * ((theta < upper) & (theta > lower)).mean() / vol_og + (1 - beta) * (
+                    (theta < upper_new) & (theta > lower_new)).mean() / vol_new
+
+        def pi(theta):
+            return ((theta < upper) & (theta > lower)).mean() / vol_og
+
+        def prior(cube_full):
+            cube = cube_full[:-1]
+            beta = cube_full[-1]
+            x_1 = np.zeros(len(paramnames) - 1)
+            x_2 = (beta * (lower_new - lower) / diff_og)
+            x_3 = ((1 - beta) + beta * (upper_new - lower) / diff_og)
+            x_4 = np.ones(len(paramnames) - 1)
+
+            if beta == 0:
+                theta = cube * diff_new + lower_new
+            else:
+                theta = ((x_1 <= cube) & (cube < x_2)) * (cube * diff_og / beta + lower) + \
+                        ((x_2 <= cube) & (cube < x_3)) * (
+                                    cube + lower_new * (beta / diff_og + (1 - beta) / diff_new) - beta * (
+                                    lower_new - lower) / diff_og) / (beta / diff_og + (1 - beta) / diff_new) + \
+                        ((x_3 <= cube) & (cube <= x_4)) * ((cube - (1 - beta)) * diff_og / beta + lower)
+
+            theta_full = np.empty_like(cube_full)
+            theta_full[:-1] = theta
+            theta_full[-1] = beta
+            return theta_full
 
         if is_main_process():
             self.dump_paramnames(self.raw_prefix)
         sync_processes()
         self.mpi_info("Calling PolyChord...")
-        self.pc.run_polychord(loglikelihood, self.nDims, self.nDerived, self.pc_settings,
+        self.pc.run_polychord(loglikelihood_tilde, self.nDims, self.nDerived, self.pc_settings,
                               prior, self.dumper)
         self.process_raw_output()
 

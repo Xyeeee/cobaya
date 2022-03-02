@@ -4,7 +4,7 @@ from typing import Optional, Union, List
 
 from cobaya.log import HasLogger, LoggedError
 from cobaya.input import HasDefaults
-from cobaya.typing import InfoDict, InfoDictIn, empty_dict
+from cobaya.typingg import InfoDict, InfoDictIn, empty_dict
 from cobaya.tools import resolve_packages_path
 from cobaya.conventions import packages_path_input
 

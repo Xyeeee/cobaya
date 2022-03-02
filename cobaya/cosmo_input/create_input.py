@@ -5,7 +5,7 @@ from typing import MutableMapping, Mapping
 # Local
 from cobaya.input import get_default_info, merge_info
 from cobaya.parameterization import reduce_info_param
-from cobaya.typing import InputDict
+from cobaya.typingg import InputDict
 from . import input_database
 
 

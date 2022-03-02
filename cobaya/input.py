@@ -23,7 +23,7 @@ import pkg_resources
 from cobaya.conventions import products_path, kinds, separator_files, \
     reserved_attributes, get_chi2_name, get_chi2_label, Extension, FileSuffix, \
     packages_path_input
-from cobaya.typing import InputDict, InfoDict, ModelDict, ExpandedParamsDict, LikesDict, \
+from cobaya.typingg import InputDict, InfoDict, ModelDict, ExpandedParamsDict, LikesDict, \
     empty_dict
 from cobaya.tools import recursive_update, str_to_list, get_base_classes, \
     fuzzy_match, deepcopy_where_possible, get_resolved_class

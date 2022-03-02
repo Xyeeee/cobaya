@@ -52,12 +52,12 @@ from numpy.random import SeedSequence, default_rng
 
 # Local
 from cobaya.conventions import Extension, packages_path_input
-from cobaya.typing import InfoDict, SamplersDict, SamplerDict
+from cobaya.typingg import InfoDict, SamplersDict, SamplerDict
 from cobaya.tools import deepcopy_where_possible, find_with_regexp
 from cobaya.tools import recursive_update, str_to_list, get_resolved_class
 from cobaya.model import Model
 from cobaya.log import LoggedError, get_logger, is_debug
-from cobaya.yaml import yaml_load_file, yaml_dump
+from cobaya.yamll import yaml_load_file, yaml_dump
 from cobaya.component import CobayaComponent
 from cobaya.input import update_info, is_equal_info, get_preferred_old_values
 from cobaya.output import OutputDummy, Output

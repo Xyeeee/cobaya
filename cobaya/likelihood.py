@@ -30,7 +30,7 @@ import numpy as np
 import numbers
 
 # Local
-from cobaya.typing import LikesDict, LikeDictIn, ParamValuesDict, empty_dict
+from cobaya.typingg import LikesDict, LikeDictIn, ParamValuesDict, empty_dict
 from cobaya.tools import get_resolved_class, get_external_function, getfullargspec, \
     str_to_list
 from cobaya.log import LoggedError

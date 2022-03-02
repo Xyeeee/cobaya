@@ -28,7 +28,7 @@ from cobaya.parameterization import is_fixed_or_function_param, is_sampled_param
 from cobaya.prior import Prior
 from cobaya.tools import progress_bar, recursive_update, deepcopy_where_possible, \
     str_to_list
-from cobaya.typing import ExpandedParamsDict, ModelBlock, ParamValuesDict, InputDict, \
+from cobaya.typingg import ExpandedParamsDict, ModelBlock, ParamValuesDict, InputDict, \
     InfoDict, PostDict
 
 if sys.version_info >= (3, 8):

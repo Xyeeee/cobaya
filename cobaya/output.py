@@ -17,7 +17,7 @@ from typing import Optional, Any
 from cobaya.yamll import yaml_dump, yaml_load, yaml_load_file, \
     OutputError, InputImportError
 from cobaya.conventions import resume_default, Extension, kinds, get_version
-from cobaya.typing import InputDict
+from cobaya.typingg import InputDict
 from cobaya.log import LoggedError, HasLogger, get_logger, get_traceback_text
 from cobaya.input import is_equal_info, get_resolved_class, load_info_dump, split_prefix
 from cobaya.input import get_info_path

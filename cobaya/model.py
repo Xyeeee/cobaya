@@ -18,7 +18,7 @@ from typing import NamedTuple, Sequence, Mapping, Iterable, Optional, \
 # Local
 from cobaya.conventions import overhead_time, debug_default, get_chi2_name, \
     packages_path_input
-from cobaya.typing import InfoDict, InputDict, LikesDict, TheoriesDict, \
+from cobaya.typingg import InfoDict, InputDict, LikesDict, TheoriesDict, \
     ParamsDict, PriorsDict, ParamValuesDict, empty_dict, unset_params
 from cobaya.input import update_info, load_input_dict
 from cobaya.parameterization import Parameterization

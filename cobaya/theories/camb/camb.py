@@ -182,7 +182,7 @@ from cobaya.install import download_github_release, check_gcc_version, NotInstal
 from cobaya.tools import getfullargspec, get_class_methods, get_properties, load_module, \
     VersionCheckError, str_to_list
 from cobaya.theory import HelperTheory
-from cobaya.typing import InfoDict
+from cobaya.typingg import InfoDict
 
 
 # Result collector

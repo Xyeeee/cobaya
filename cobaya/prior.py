@@ -344,7 +344,7 @@ from typing import Sequence, NamedTuple, Callable, Optional, Mapping, List
 
 # Local
 from cobaya.conventions import prior_1d_name
-from cobaya.typing import PriorsDict
+from cobaya.typingg import PriorsDict
 from cobaya.tools import get_external_function, get_scipy_1d_pdf, read_dnumber
 from cobaya.tools import _fast_norm_logpdf, getfullargspec
 from cobaya.log import LoggedError, HasLogger

@@ -19,7 +19,7 @@ from cobaya.mpi import get_mpi_size
 from cobaya.mpi import more_than_one_process, is_main_process, sync_processes
 from cobaya.collection import SampleCollection, OneSamplePoint
 from cobaya.conventions import OutPar, Extension, line_width, get_version
-from cobaya.typing import empty_dict
+from cobaya.typingg import empty_dict
 from cobaya.samplers.mcmc.proposal import BlockedProposer
 from cobaya.log import LoggedError, always_stop_exceptions
 from cobaya.tools import get_external_function, NumberWithUnits, load_DataFrame
