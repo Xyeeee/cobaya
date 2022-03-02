@@ -143,9 +143,8 @@ class polychord(Sampler):
                    "precision_criterion", "max_ndead", "boost_posterior", "feedback",
                    "logzero", "posteriors", "equals", "compression_factor",
                    "cluster_posteriors", "write_resume", "read_resume", "write_stats",
-                   "write_live", "write_dead", "base_dir", "grade_frac", "grade_dims",
-                   "feedback", "read_resume", "base_dir", "file_root", "grade_frac",
-                   "grade_dims"]
+                   "write_live", "write_dead", "feedback", "read_resume", "base_dir", "file_root"]
+        #TODO: Actually fix the dimensionality instead of deleting the pc_arg 'grade_dims'
         # As stated above, num_repeats is ignored, so let's not pass it
         pc_args.pop(pc_args.index("num_repeats"))
         settings: Any = load_module('pypolychord.settings', path=self._poly_build_path,
