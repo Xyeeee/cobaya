@@ -16,7 +16,7 @@ from typing import Any, Callable, Optional
 from tempfile import gettempdir
 import re
 import os
-from anesthetic import MCMCSamples, NestedSamples
+from anesthetic import MCMCSamples
 # Local
 from cobaya.tools import read_dnumber, get_external_function, \
     find_with_regexp, NumberWithUnits, load_module, VersionCheckError
