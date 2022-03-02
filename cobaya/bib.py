@@ -17,7 +17,7 @@ from inspect import cleandoc
 from cobaya.conventions import Extension, kinds, dump_sort_cosmetic
 from cobaya.tools import create_banner, warn_deprecation, get_class
 from cobaya.input import load_input, get_used_components
-from cobaya.typing import InfoDict
+from cobaya.typingg import InfoDict
 
 # Banner defaults
 _default_symbol = "="

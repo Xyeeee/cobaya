@@ -7,7 +7,7 @@ import pytest
 
 from cobaya.run import run
 from cobaya.post import post, OutputOptions
-from cobaya.typing import ParamsDict, InputDict
+from cobaya.typingg import ParamsDict, InputDict
 from cobaya.conventions import separator_files
 from cobaya import mpi
 

@@ -1,6 +1,6 @@
-from cobaya import run
+from cobaya.run import run
 
-run.run("NS_default.yaml",
+run("NS_default.yaml",
         packages_path="packages",
         output="runs/NS_default",
         debug=False,

@@ -6,7 +6,7 @@ import pytest
 import os
 
 # Local
-from cobaya.typing import InputDict
+from cobaya.typingg import InputDict
 from cobaya.run import run, run_script
 from cobaya.log import LoggedError
 from cobaya.input import get_default_info

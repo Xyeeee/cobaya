@@ -11,7 +11,7 @@ import os
 
 # Local
 from cobaya.likelihood import Likelihood
-from cobaya.typing import InfoDict
+from cobaya.typingg import InfoDict
 from cobaya.log import get_logger
 
 

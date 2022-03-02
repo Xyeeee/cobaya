@@ -15,7 +15,7 @@ from scipy.special import logsumexp
 from cobaya.likelihood import Likelihood
 from cobaya.log import LoggedError
 from cobaya.mpi import share_mpi, is_main_process
-from cobaya.typing import InputDict, Union, Sequence
+from cobaya.typingg import InputDict, Union, Sequence
 
 derived_suffix = "_derived"
 

@@ -12,7 +12,7 @@ from getdist import IniFile
 # Local
 from cobaya.log import LoggedError
 from cobaya.install import NotInstalledError
-from cobaya.typing import InfoDict
+from cobaya.typingg import InfoDict
 from cobaya.conventions import packages_path_input
 from .InstallableLikelihood import InstallableLikelihood
 
