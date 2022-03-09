@@ -12,6 +12,7 @@
 build/
 dist/
 __pycache__
+packages/
 
 # Documentation
 docs/_*
