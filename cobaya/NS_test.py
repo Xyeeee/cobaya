@@ -1,9 +1,9 @@
 from cobaya.run import run
 
 run("NS_default.yaml",
-    packages_path="packages",
+    packages_path="../packages",
     output="runs/NS_default",
-    debug=False,
+    debug=True,
     stop_at_error=True,
     resume=False,
     force=False,

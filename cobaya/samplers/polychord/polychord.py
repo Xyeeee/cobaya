@@ -16,7 +16,6 @@ from typing import Any, Callable, Optional
 from tempfile import gettempdir
 import re
 import os
-from anesthetic import MCMCSamples
 # Local
 from cobaya.tools import read_dnumber, get_external_function, \
     find_with_regexp, NumberWithUnits, load_module, VersionCheckError
@@ -69,8 +68,8 @@ class polychord(Sampler):
                           "[packages_path]'", packages_path_arg)
         # Prepare arguments and settings
         self.mode = "beta"
-        self.n_hyperparam = {"beta":1,"gamma":2,"delta":2}
-        self.n_sampled = len(self.model.parameterization.sampled_params()) + self.n_hyperparam[self.mode]
+        self.n_hyperparam = {"beta": 1, "gamma": 2, "delta": 2}
+        self.n_sampled = len(self.model.parameterization.sampled_params())
         self.n_derived = len(self.model.parameterization.derived_params())
         self.n_priors = len(self.model.prior)
         self.n_likes = len(self.model.likelihood)
@@ -144,7 +143,7 @@ class polychord(Sampler):
                    "logzero", "posteriors", "equals", "compression_factor",
                    "cluster_posteriors", "write_resume", "read_resume", "write_stats",
                    "write_live", "write_dead", "feedback", "read_resume", "base_dir", "file_root"]
-        #TODO: Actually fix the dimensionality instead of deleting the pc_arg 'grade_dims'
+        # TODO: Actually fix the dimensionality instead of deleting the pc_arg 'grade_dims'
         # As stated above, num_repeats is ignored, so let's not pass it
         pc_args.pop(pc_args.index("num_repeats"))
         settings: Any = load_module('pypolychord.settings', path=self._poly_build_path,
@@ -213,42 +212,19 @@ class polychord(Sampler):
         Placeholer distribution for proposal mean and sigma, will be plugged in via file reading from previous mcmc run 
         once mcmc run succeeds
         """
-        if not os.path.isdir('base'):
-            chains = 'https://pla.esac.esa.int/pla/aio/product-action?COSMOLOGY.FILE_ID=COM_CosmoParams_base-plikHM-TTTEEE-lowl-lowE_R3.00.zip'
 
-            import urllib.request
+        #The best practice is trying to initialize the mean/sigma and bounds data with the self.ordering
+        #question does self.ordering change during evaluation?
+        mu = np.random.rand(self.n_sampled)
+        Sig = np.random.rand(self.n_sampled)
 
-            urllib.request.urlretrieve(chains, "chains.zip")
-
-            import zipfile
-
-            with zipfile.ZipFile("chains.zip", 'r') as zip_ref:
-                zip_ref.extractall(".")
-
-            os.remove("chains.zip")
-        # Load the planck samples into MCMCSamples object
-        root = 'base/plikHM_TTTEEE_lowl_lowE_lensing/base_plikHM_TTTEEE_lowl_lowE_lensing'
-        planck_samples = MCMCSamples(root=root)
-        planck_samples["beta"] = np.random.rand((planck_samples.shape[0]))
-        planck_samples.limits["beta"] = (0., 1.)
-
-        paramnames = np.append(planck_samples.columns, planck_samples.columns[-1])
-
-        mu = planck_samples[paramnames].mean().values
-        Sig = planck_samples[paramnames].cov().values
-        invSig = np.linalg.inv(Sig[:-1, :-1])
-
-        bounds = np.array([planck_samples.limits[p] for p in paramnames], dtype=float)
+        lower = mu
+        upper = mu + 12 * np.sqrt(Sig)
+        #Such that actual mean is then at mu+6sqrt(sig)
 
         # Tightened prior bounds, will improve the convergence
-        improved_prior_bounds = np.zeros((len(paramnames), 2))
-        improved_prior_bounds[:, 0] = mu - 3 * np.sqrt(np.diag(Sig))
-        improved_prior_bounds[:, 1] = mu + 3 * np.sqrt(np.diag(Sig))
-        lower = bounds[:-1, 0]
-        upper = bounds[:-1, 1]
-
-        upper_new = improved_prior_bounds[:-1, 1]
-        lower_new = improved_prior_bounds[:-1, 0]
+        upper_new = mu + 9 * np.sqrt(Sig)
+        lower_new = mu + 3 * np.sqrt(Sig)
         diff_og = upper - lower
         diff_new = upper_new - lower_new
 
@@ -284,18 +260,18 @@ class polychord(Sampler):
         def prior(cube_full):
             cube = cube_full[:-1]
             beta = cube_full[-1]
-            x_1 = np.zeros(len(paramnames) - 1)
+            x_1 = np.zeros(self.n_sampled)
             x_2 = (beta * (lower_new - lower) / diff_og)
             x_3 = ((1 - beta) + beta * (upper_new - lower) / diff_og)
-            x_4 = np.ones(len(paramnames) - 1)
+            x_4 = np.ones(self.n_sampled)
 
             if beta == 0:
                 theta = cube * diff_new + lower_new
             else:
                 theta = ((x_1 <= cube) & (cube < x_2)) * (cube * diff_og / beta + lower) + \
                         ((x_2 <= cube) & (cube < x_3)) * (
-                                    cube + lower_new * (beta / diff_og + (1 - beta) / diff_new) - beta * (
-                                    lower_new - lower) / diff_og) / (beta / diff_og + (1 - beta) / diff_new) + \
+                                cube + lower_new * (beta / diff_og + (1 - beta) / diff_new) - beta * (
+                                lower_new - lower) / diff_og) / (beta / diff_og + (1 - beta) / diff_new) + \
                         ((x_3 <= cube) & (cube <= x_4)) * ((cube - (1 - beta)) * diff_og / beta + lower)
 
             theta_full = np.empty_like(cube_full)
