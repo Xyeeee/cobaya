@@ -148,7 +148,7 @@ best adapts to your needs:
 
 * To use your own version, assuming it's placed under ``/path/to/theories/CAMB``,
   just make sure it is compiled (and that the version on top of which you based your
-  modifications is old enough to have the Python interface implemented.
+  modifications is young enough to have the Python interface implemented).
 
 In the cases above, you **must** specify the path to your CAMB installation in
 the input block for CAMB (otherwise a system-wide CAMB may be used instead):
