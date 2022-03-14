@@ -28,6 +28,17 @@ from cobaya.yamll import yaml_dump_file
 from cobaya.conventions import derived_par_name_separator, packages_path_arg, Extension
 
 
+def get_proposal(n_sampled):
+    f = open("chains/test.stats", "r")
+    lines = f.readlines()
+    mu = []
+    sig = []
+    for entry in lines[30: 30 + n_sampled]:
+        mu.append(float(entry.split()[1]))
+        sig.append(float(entry.split()[3]))
+    return mu, sig
+
+
 class polychord(Sampler):
     r"""
     PolyChord sampler \cite{Handley:2015fda,2015MNRAS.453.4384H}, a nested sampler
@@ -68,7 +79,7 @@ class polychord(Sampler):
                           "[packages_path]'", packages_path_arg)
         # Prepare arguments and settings
         self.mode = "beta"
-        self.n_hyperparam = {"beta": 1, "gamma": 2, "delta": 2}
+        self.n_hyperparam = {"normal": 0, "beta": 1, "gamma": 2, "delta": 2}
         self.n_sampled = len(self.model.parameterization.sampled_params())
         self.n_derived = len(self.model.parameterization.derived_params())
         self.n_priors = len(self.model.prior)
@@ -129,6 +140,10 @@ class polychord(Sampler):
         blocks_flat = list(chain(*blocks))
         self.ordering = [
             blocks_flat.index(p) for p in self.model.parameterization.sampled_params()]
+        if self.n_hyperparam[self.mode] != 0:
+            mu, sig = get_proposal(self.n_sampled)
+            self.mu = np.array([mu[ind] for ind in self.ordering])
+            self.sig = np.array([sig[ind] for ind in self.ordering])
         self.grade_dims = [len(block) for block in blocks]
         # Steps per block
         # NB: num_repeats is ignored by PolyChord when int "grade_frac" given,
@@ -212,19 +227,18 @@ class polychord(Sampler):
         Placeholer distribution for proposal mean and sigma, will be plugged in via file reading from previous mcmc run 
         once mcmc run succeeds
         """
-
-        #The best practice is trying to initialize the mean/sigma and bounds data with the self.ordering
-        #question does self.ordering change during evaluation?
-        mu = np.random.rand(self.n_sampled)
-        Sig = np.random.rand(self.n_sampled)
-
-        lower = mu
-        upper = mu + 12 * np.sqrt(Sig)
-        #Such that actual mean is then at mu+6sqrt(sig)
+        bounds_unordered = self.model.prior.bounds()
+        bounds = [bounds_unordered[ind] for ind in self.ordering]
+        lower = np.array([pair[0] for pair in bounds])
+        upper = np.array([pair[1] for pair in bounds])
+        for ind, bound in enumerate(lower):
+            if np.isinf(bound):
+                lower[ind] = self.mu[ind] - 5 * self.sig[ind]
+                upper[ind] = self.mu[ind] + 5 * self.sig[ind]
 
         # Tightened prior bounds, will improve the convergence
-        upper_new = mu + 9 * np.sqrt(Sig)
-        lower_new = mu + 3 * np.sqrt(Sig)
+        upper_new = self.mu + np.array([(np.sqrt(sig) if sig > 1 else sig) for sig in self.sig])
+        lower_new = self.mu - np.array([(np.sqrt(sig) if sig > 1 else sig) for sig in self.sig])
         diff_og = upper - lower
         diff_new = upper_new - lower_new
 
@@ -248,7 +262,7 @@ class polychord(Sampler):
         def loglikelihood_tilde(theta_full):
             theta = theta_full[:-1]
             beta = theta_full[-1]
-            return loglikelihood(theta)[0] + np.log(pi(theta) / pi_tilde(theta, beta)), []
+            return loglikelihood(theta)[0] + np.log(pi(theta) / pi_tilde(theta, beta)), loglikelihood(theta)[1]
 
         def pi_tilde(theta, beta):
             return beta * ((theta < upper) & (theta > lower)).mean() / vol_og + (1 - beta) * (
