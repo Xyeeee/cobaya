@@ -249,6 +249,7 @@ class polychord(Sampler):
 
         # Prepare the polychord likelihood
         def loglikelihood(params_values):
+            params_values = np.array([params_values[i] for i in np.argsort(self.ordering)])
             result = self.model.logposterior(params_values)
             loglikes = result.loglikes
             if len(loglikes) != self.n_likes:
@@ -272,7 +273,7 @@ class polychord(Sampler):
             return ((theta < upper) & (theta > lower)).mean() / vol_og
 
         def prior(cube_full):
-            cube = cube_full[:-1]
+            cube = np.array([cube_full[i] for i in self.ordering])
             beta = cube_full[-1]
             x_1 = np.zeros(self.n_sampled)
             x_2 = (beta * (lower_new - lower) / diff_og)
