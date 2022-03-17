@@ -28,15 +28,7 @@ from cobaya.yamll import yaml_dump_file
 from cobaya.conventions import derived_par_name_separator, packages_path_arg, Extension
 
 
-def get_proposal(n_sampled):
-    f = open("chains/test.stats", "r")
-    lines = f.readlines()
-    mu = []
-    sig = []
-    for entry in lines[30: 30 + n_sampled]:
-        mu.append(float(entry.split()[1]))
-        sig.append(float(entry.split()[3]))
-    return mu, sig
+
 
 
 class polychord(Sampler):
@@ -64,6 +56,23 @@ class polychord(Sampler):
     nlive: NumberWithUnits
     path: str
 
+    def get_proposal(self, sampler):
+        if sampler == 0:  # 0th sampler is by default Polychord
+            f = open("chains/test.stats", "r")
+            lines = f.readlines()
+            mu = []
+            sig = []
+            for entry in lines[30: 30 + self.n_sampled]:
+                mu.append(float(entry.split()[1]))
+                sig.append(float(entry.split()[3]))
+        elif sampler == 1:
+            from anesthetic import MCMCSamples
+            root = "icelake/camb_default"
+            planck_samples = MCMCSamples(root=root)
+            mu = planck_samples.mean().values[:27]
+            sig = np.diag(planck_samples.cov().values)[:27]
+        return mu, sig
+
     def initialize(self):
         """Imports the PolyChord sampler and prepares its arguments."""
         # Allow global import if no direct path specification
@@ -79,6 +88,7 @@ class polychord(Sampler):
                           "[packages_path]'", packages_path_arg)
         # Prepare arguments and settings
         self.mode = "beta"
+        self.reorder = False
         self.n_hyperparam = {"normal": 0, "beta": 1, "gamma": 2, "delta": 2}
         self.n_sampled = len(self.model.parameterization.sampled_params())
         self.n_derived = len(self.model.parameterization.derived_params())
@@ -141,9 +151,13 @@ class polychord(Sampler):
         self.ordering = [
             blocks_flat.index(p) for p in self.model.parameterization.sampled_params()]
         if self.n_hyperparam[self.mode] != 0:
-            mu, sig = get_proposal(self.n_sampled)
-            self.mu = np.array([mu[ind] for ind in self.ordering])
-            self.sig = np.array([sig[ind] for ind in self.ordering])
+            mu, sig = self.get_proposal(0)
+            if self.reorder:
+                self.mu = np.array([mu[ind] for ind in self.ordering])
+                self.sig = np.array([sig[ind] for ind in self.ordering])
+            else:
+                self.mu = mu
+                self.sig = sig
         self.grade_dims = [len(block) for block in blocks]
         # Steps per block
         # NB: num_repeats is ignored by PolyChord when int "grade_frac" given,
@@ -157,7 +171,8 @@ class polychord(Sampler):
                    "precision_criterion", "max_ndead", "boost_posterior", "feedback",
                    "logzero", "posteriors", "equals", "compression_factor",
                    "cluster_posteriors", "write_resume", "read_resume", "write_stats",
-                   "write_live", "write_dead", "feedback", "read_resume", "base_dir", "file_root"]
+                   "write_live", "write_dead", "base_dir",
+                   "feedback", "read_resume", "base_dir", "file_root"]
         # TODO: Actually fix the dimensionality instead of deleting the pc_arg 'grade_dims'
         # As stated above, num_repeats is ignored, so let's not pass it
         pc_args.pop(pc_args.index("num_repeats"))
@@ -228,7 +243,10 @@ class polychord(Sampler):
         once mcmc run succeeds
         """
         bounds_unordered = self.model.prior.bounds()
-        bounds = [bounds_unordered[ind] for ind in self.ordering]
+        if self.reorder:
+            bounds = [bounds_unordered[ind] for ind in self.ordering]
+        else:
+            bounds = bounds_unordered
         lower = np.array([pair[0] for pair in bounds])
         upper = np.array([pair[1] for pair in bounds])
         for ind, bound in enumerate(lower):
@@ -249,7 +267,8 @@ class polychord(Sampler):
 
         # Prepare the polychord likelihood
         def loglikelihood(params_values):
-            params_values = np.array([params_values[i] for i in np.argsort(self.ordering)])
+            if self.reorder:
+                params_values = np.array([params_values[i] for i in np.argsort(self.ordering)])
             result = self.model.logposterior(params_values)
             loglikes = result.loglikes
             if len(loglikes) != self.n_likes:
@@ -273,7 +292,10 @@ class polychord(Sampler):
             return ((theta < upper) & (theta > lower)).mean() / vol_og
 
         def prior(cube_full):
-            cube = np.array([cube_full[i] for i in self.ordering])
+            if self.reorder:
+                cube = np.array([cube_full[i] for i in self.ordering])
+            else:
+                cube = cube_full[:-1]
             beta = cube_full[-1]
             x_1 = np.zeros(self.n_sampled)
             x_2 = (beta * (lower_new - lower) / diff_og)
