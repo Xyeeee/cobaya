@@ -167,12 +167,20 @@ class polychord(Sampler):
             int(o * read_dnumber(self.num_repeats, dim_block))
             for o, dim_block in zip(oversampling_factors, self.grade_dims)]
         # Assign settings
-        pc_args = ["nlive", "num_repeats", "nprior", "do_clustering",
-                   "precision_criterion", "max_ndead", "boost_posterior", "feedback",
-                   "logzero", "posteriors", "equals", "compression_factor",
-                   "cluster_posteriors", "write_resume", "read_resume", "write_stats",
-                   "write_live", "write_dead", "base_dir",
-                   "feedback", "read_resume", "base_dir", "file_root"]
+        if self.proposal_mode is not None:
+            pc_args = ["nlive", "num_repeats", "nprior", "do_clustering",
+                       "precision_criterion", "max_ndead", "boost_posterior", "feedback",
+                       "logzero", "posteriors", "equals", "compression_factor",
+                       "cluster_posteriors", "write_resume", "read_resume", "write_stats",
+                       "write_live", "write_dead", "base_dir",
+                       "feedback", "read_resume", "base_dir", "file_root"]
+        else:
+            pc_args = ["nlive", "num_repeats", "nprior", "do_clustering",
+                       "feedback", "precision_criterion", "logzero",
+                       "max_ndead", "boost_posterior", "posteriors", "equals",
+                       "cluster_posteriors", "write_resume", "read_resume",
+                       "write_stats", "write_live", "write_dead", "compression_factor", "base_dir",
+                       "file_root", "seed", "grade_dims", "grade_frac"]
         # TODO: Actually fix the dimensionality instead of deleting the pc_arg 'grade_dims'
         # As stated above, num_repeats is ignored, so let's not pass it
         pc_args.pop(pc_args.index("num_repeats"))
@@ -242,26 +250,27 @@ class polychord(Sampler):
         Placeholer distribution for proposal mean and sigma, will be plugged in via file reading from previous mcmc run 
         once mcmc run succeeds
         """
-        bounds_unordered = self.model.prior.bounds()
-        if self.reorder:
-            bounds = [bounds_unordered[ind] for ind in self.ordering]
-        else:
-            bounds = bounds_unordered
-        lower = np.array([pair[0] for pair in bounds])
-        upper = np.array([pair[1] for pair in bounds])
-        for ind, bound in enumerate(lower):
-            if np.isinf(bound):
-                lower[ind] = self.mu[ind] - 5 * self.sig[ind]
-                upper[ind] = self.mu[ind] + 5 * self.sig[ind]
+        if self.proposal_mode is not None:
+            bounds_unordered = self.model.prior.bounds()
+            if self.reorder:
+                bounds = [bounds_unordered[ind] for ind in self.ordering]
+            else:
+                bounds = bounds_unordered
+            lower = np.array([pair[0] for pair in bounds])
+            upper = np.array([pair[1] for pair in bounds])
+            for ind, bound in enumerate(lower):
+                if np.isinf(bound):
+                    lower[ind] = self.mu[ind] - 5 * self.sig[ind]
+                    upper[ind] = self.mu[ind] + 5 * self.sig[ind]
 
-        # Tightened prior bounds, will improve the convergence
-        upper_new = self.mu + np.array([(np.sqrt(sig) if sig > 1 else sig) for sig in self.sig])
-        lower_new = self.mu - np.array([(np.sqrt(sig) if sig > 1 else sig) for sig in self.sig])
-        diff_og = upper - lower
-        diff_new = upper_new - lower_new
+            # Tightened prior bounds, will improve the convergence
+            upper_new = self.mu + np.array([(np.sqrt(sig) if sig > 1 else sig) for sig in self.sig])
+            lower_new = self.mu - np.array([(np.sqrt(sig) if sig > 1 else sig) for sig in self.sig])
+            diff_og = upper - lower
+            diff_new = upper_new - lower_new
 
-        vol_og = np.prod(diff_og)
-        vol_new = np.prod(diff_new)
+            vol_og = np.prod(diff_og)
+            vol_new = np.prod(diff_new)
 
         # Essentially what is needed here will be the sampled distribution means
 
@@ -292,37 +301,48 @@ class polychord(Sampler):
             return ((theta < upper) & (theta > lower)).mean() / vol_og
 
         def prior(cube_full):
-            if self.reorder:
-                cube = np.array([cube_full[i] for i in self.ordering])
-            else:
-                cube = cube_full[:-1]
-            beta_cdf = cube_full[-1]
-            beta = stats.beta.ppf(beta_cdf, 1, 0.5)
-            x_1 = np.zeros(self.n_sampled)
-            x_2 = (beta * (lower_new - lower) / diff_og)
-            x_3 = ((1 - beta) + beta * (upper_new - lower) / diff_og)
-            x_4 = np.ones(self.n_sampled)
+            if self.proposal_mode is not None:
+                if self.reorder:
+                    cube = np.array([cube_full[i] for i in self.ordering])
+                else:
+                    cube = cube_full[:-1]
+                beta_cdf = cube_full[-1]
+                beta = stats.beta.ppf(beta_cdf, 1, 0.5)
+                x_1 = np.zeros(self.n_sampled)
+                x_2 = (beta * (lower_new - lower) / diff_og)
+                x_3 = ((1 - beta) + beta * (upper_new - lower) / diff_og)
+                x_4 = np.ones(self.n_sampled)
 
-            if beta == 0:
-                theta = cube * diff_new + lower_new
-            else:
-                theta = ((x_1 <= cube) & (cube < x_2)) * (cube * diff_og / beta + lower) + \
-                        ((x_2 <= cube) & (cube < x_3)) * (
-                                cube + lower_new * (beta / diff_og + (1 - beta) / diff_new) - beta * (
-                                lower_new - lower) / diff_og) / (beta / diff_og + (1 - beta) / diff_new) + \
-                        ((x_3 <= cube) & (cube <= x_4)) * ((cube - (1 - beta)) * diff_og / beta + lower)
+                if beta == 0:
+                    theta = cube * diff_new + lower_new
+                else:
+                    theta = ((x_1 <= cube) & (cube < x_2)) * (cube * diff_og / beta + lower) + \
+                            ((x_2 <= cube) & (cube < x_3)) * (
+                                    cube + lower_new * (beta / diff_og + (1 - beta) / diff_new) - beta * (
+                                    lower_new - lower) / diff_og) / (beta / diff_og + (1 - beta) / diff_new) + \
+                            ((x_3 <= cube) & (cube <= x_4)) * ((cube - (1 - beta)) * diff_og / beta + lower)
 
-            theta_full = np.empty_like(cube_full)
-            theta_full[:-1] = theta
-            theta_full[-1] = beta
-            return theta_full
+                theta_full = np.empty_like(cube_full)
+                theta_full[:-1] = theta
+                theta_full[-1] = beta
+                return theta_full
+            else:
+                cube = cube_full
+                theta = np.empty_like(cube)
+                for i, xi in enumerate(np.array(cube)[self.ordering]):
+                    theta[i] = self.model.prior.pdf[i].ppf(xi)
+                return theta
 
         if is_main_process():
             self.dump_paramnames(self.raw_prefix)
         sync_processes()
         self.mpi_info("Calling PolyChord...")
-        self.pc.run_polychord(loglikelihood_tilde, self.nDims, self.nDerived, self.pc_settings,
-                              prior, self.dumper)
+        if self.proposal_mode is not None:
+            self.pc.run_polychord(loglikelihood_tilde, self.nDims, self.nDerived, self.pc_settings,
+                                  prior, self.dumper)
+        else:
+            self.pc.run_polychord(loglikelihood, self.nDims, self.nDerived, self.pc_settings,
+                                  prior, self.dumper)
         self.process_raw_output()
 
     @property
