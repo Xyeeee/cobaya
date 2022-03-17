@@ -38,6 +38,8 @@ def run(info_or_yaml_or_file: Union[InputDict, str, os.PathLike],
         resume: bool = False, force: bool = False,
         no_mpi: bool = False, test: bool = False,
         override: Optional[InputDict] = None,
+        proposal_mode = "beta",
+        proposal_source = 0
         ) -> Union[InfoSamplerTuple, PostTuple]:
     """
     Run from an input dictionary, file name or yaml string, with optional arguments
@@ -141,9 +143,14 @@ def run(info_or_yaml_or_file: Union[InputDict, str, os.PathLike],
                 # Re-dump the updated info, now containing parameter routes and version
                 updated_info = recursive_update(updated_info, model.info())
                 out.check_and_dump_info(None, updated_info, check_compatible=False)
-                sampler = sampler_class(updated_info["sampler"][sampler_name],
+                if proposal_mode is not None:
+                    sampler = sampler_class(updated_info["sampler"][sampler_name],
+                                            model, out, name=sampler_name,
+                                            packages_path=info.get(packages_path_input),proposal_mode=proposal_mode,proposal_source=proposal_source)
+                else:
+                    sampler = sampler_class(updated_info["sampler"][sampler_name],
                                         model, out, name=sampler_name,
-                                        packages_path=info.get(packages_path_input))
+                                        packages_path=info.get(packages_path_input),proposal_mode=None, proposal_source=None)
                 # Re-dump updated info, now also containing updates from the sampler
                 updated_info["sampler"][sampler_name] = \
                     recursive_update(updated_info["sampler"][sampler_name],

@@ -26,9 +26,7 @@ from cobaya.log import LoggedError, get_logger
 from cobaya.install import download_github_release, NotInstalledError
 from cobaya.yamll import yaml_dump_file
 from cobaya.conventions import derived_par_name_separator, packages_path_arg, Extension
-
-
-
+from scipy import stats
 
 
 class polychord(Sampler):
@@ -87,14 +85,16 @@ class polychord(Sampler):
                           "To install it, run 'cobaya-install polychord --%s "
                           "[packages_path]'", packages_path_arg)
         # Prepare arguments and settings
-        self.mode = "beta"
         self.reorder = False
         self.n_hyperparam = {"normal": 0, "beta": 1, "gamma": 2, "delta": 2}
         self.n_sampled = len(self.model.parameterization.sampled_params())
         self.n_derived = len(self.model.parameterization.derived_params())
         self.n_priors = len(self.model.prior)
         self.n_likes = len(self.model.likelihood)
-        self.nDims = self.model.prior.d() + self.n_hyperparam[self.mode]
+        if self.proposal_mode is not None:
+            self.nDims = self.model.prior.d() + self.n_hyperparam[self.proposal_mode]
+        else:
+            self.nDims = self.model.prior.d()
         self.nDerived = (self.n_derived + self.n_priors + self.n_likes)
         if self.logzero is None:
             self.logzero = np.nan_to_num(-np.inf)
@@ -150,8 +150,8 @@ class polychord(Sampler):
         blocks_flat = list(chain(*blocks))
         self.ordering = [
             blocks_flat.index(p) for p in self.model.parameterization.sampled_params()]
-        if self.n_hyperparam[self.mode] != 0:
-            mu, sig = self.get_proposal(0)
+        if self.proposal_mode is not None and self.n_hyperparam[self.proposal_mode] != 0:
+            mu, sig = self.get_proposal(self.proposal_source)
             if self.reorder:
                 self.mu = np.array([mu[ind] for ind in self.ordering])
                 self.sig = np.array([sig[ind] for ind in self.ordering])
@@ -296,7 +296,8 @@ class polychord(Sampler):
                 cube = np.array([cube_full[i] for i in self.ordering])
             else:
                 cube = cube_full[:-1]
-            beta = cube_full[-1]
+            beta_cdf = cube_full[-1]
+            beta = stats.beta.ppf(beta_cdf, 1, 0.5)
             x_1 = np.zeros(self.n_sampled)
             x_2 = (beta * (lower_new - lower) / diff_og)
             x_3 = ((1 - beta) + beta * (upper_new - lower) / diff_og)
