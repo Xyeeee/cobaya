@@ -266,8 +266,7 @@ class polychord(Sampler):
             x_upper = np.array([self.model.prior.pdf[i].cdf(upper_new[i]) for i in range(self.n_sampled)])
             x_lower = np.array([self.model.prior.pdf[i].cdf(lower_new[i]) for i in range(self.n_sampled)])
             x_diff = x_upper - x_lower
-            # vol_og = np.prod(diff_og)
-            vol_new = np.prod(diff_new)
+
 
         # Essentially what is needed here will be the sampled distribution means
 
@@ -294,12 +293,11 @@ class polychord(Sampler):
                 return loglikelihood(theta)[0] + np.log(pi(theta) / pi_tilde(theta, beta)), loglikelihood(theta)[1]
 
         def pi_tilde(theta, beta):
-            return np.product(beta * np.array([self.model.prior.pdf[i](theta[i]) for i in range(self.n_sampled)]) + (
-                    1 - beta) * (
-                                      (theta < upper_new) & (theta > lower_new)).mean() / vol_new)
+            return np.product(beta * np.array([self.model.prior.pdf[i].pdf(theta[i]) for i in range(self.n_sampled)]) + (
+                    1 - beta) * ((theta < upper_new) & (theta > lower_new))/diff_new)
 
         def pi(theta):
-            return np.product([self.model.prior.pdf[i](theta[i]) for i in range(self.n_sampled)])
+            return np.product([self.model.prior.pdf[i].pdf(theta[i]) for i in range(self.n_sampled)])
 
         def prior(cube_full):
             if self.proposal_mode is not None:
