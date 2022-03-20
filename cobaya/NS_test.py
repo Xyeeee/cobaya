@@ -2,7 +2,7 @@ from cobaya.run import run
 
 run("NS_default.yaml",
     packages_path="../packages",
-    output="wopro/nop",
+    output="circle/noreorder",
     debug=True,
     stop_at_error=False,
     resume=True,
@@ -10,6 +10,6 @@ run("NS_default.yaml",
     no_mpi=True,
     test=False,
     override=None,
-    proposal_mode=None,
+    proposal_mode="beta",
     proposal_source=0
     )

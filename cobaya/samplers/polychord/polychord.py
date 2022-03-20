@@ -246,30 +246,27 @@ class polychord(Sampler):
         Prepares the posterior function and calls ``PolyChord``'s ``run`` function.
         """
 
-        """"
-        Placeholer distribution for proposal mean and sigma, will be plugged in via file reading from previous mcmc run 
-        once mcmc run succeeds
-        """
         if self.proposal_mode is not None:
-            bounds_unordered = self.model.prior.bounds()
-            if self.reorder:
-                bounds = [bounds_unordered[ind] for ind in self.ordering]
-            else:
-                bounds = bounds_unordered
-            lower = np.array([pair[0] for pair in bounds])
-            upper = np.array([pair[1] for pair in bounds])
-            for ind, bound in enumerate(lower):
-                if np.isinf(bound):
-                    lower[ind] = self.mu[ind] - 5 * self.sig[ind]
-                    upper[ind] = self.mu[ind] + 5 * self.sig[ind]
+            # bounds_unordered = self.model.prior.bounds()
+            # if self.reorder:
+            #     bounds = [bounds_unordered[ind] for ind in self.ordering]
+            # else:
+            #     bounds = bounds_unordered
+            # lower = np.array([pair[0] for pair in bounds])
+            # upper = np.array([pair[1] for pair in bounds])
+            # for ind, bound in enumerate(lower):
+            #     if np.isinf(bound):
+            #         lower[ind] = self.mu[ind] - 5 * self.sig[ind]
+            #         upper[ind] = self.mu[ind] + 5 * self.sig[ind]
 
             # Tightened prior bounds, will improve the convergence
             upper_new = self.mu + np.array([(np.sqrt(sig) if sig > 1 else sig) for sig in self.sig])
             lower_new = self.mu - np.array([(np.sqrt(sig) if sig > 1 else sig) for sig in self.sig])
-            diff_og = upper - lower
             diff_new = upper_new - lower_new
-
-            vol_og = np.prod(diff_og)
+            x_upper = np.array([self.model.prior.pdf[i].cdf(upper_new[i]) for i in range(self.n_sampled)])
+            x_lower = np.array([self.model.prior.pdf[i].cdf(lower_new[i]) for i in range(self.n_sampled)])
+            x_diff = x_upper - x_lower
+            # vol_og = np.prod(diff_og)
             vol_new = np.prod(diff_new)
 
         # Essentially what is needed here will be the sampled distribution means
@@ -291,37 +288,36 @@ class polychord(Sampler):
         def loglikelihood_tilde(theta_full):
             theta = theta_full[:-1]
             beta = theta_full[-1]
-            return loglikelihood(theta)[0] + np.log(pi(theta) / pi_tilde(theta, beta)), loglikelihood(theta)[1]
+            if beta == 0:
+                return loglikelihood(theta)
+            else:
+                return loglikelihood(theta)[0] + np.log(pi(theta) / pi_tilde(theta, beta)), loglikelihood(theta)[1]
 
         def pi_tilde(theta, beta):
-            return beta * ((theta < upper) & (theta > lower)).mean() / vol_og + (1 - beta) * (
-                    (theta < upper_new) & (theta > lower_new)).mean() / vol_new
+            return np.product(beta * np.array([self.model.prior.pdf[i](theta[i]) for i in range(self.n_sampled)]) + (
+                    1 - beta) * (
+                                      (theta < upper_new) & (theta > lower_new)).mean() / vol_new)
 
         def pi(theta):
-            return ((theta < upper) & (theta > lower)).mean() / vol_og
+            return np.product([self.model.prior.pdf[i](theta[i]) for i in range(self.n_sampled)])
 
         def prior(cube_full):
             if self.proposal_mode is not None:
                 if self.reorder:
-                    cube = np.array([cube_full[i] for i in self.ordering])
+                    circle = np.array([cube_full[i] for i in self.ordering])
                 else:
-                    cube = cube_full[:-1]
+                    circle = cube_full[:-1]
                 beta_cdf = cube_full[-1]
                 beta = stats.beta.ppf(beta_cdf, 1, 0.5)
-                x_1 = np.zeros(self.n_sampled)
-                x_2 = (beta * (lower_new - lower) / diff_og)
-                x_3 = ((1 - beta) + beta * (upper_new - lower) / diff_og)
-                x_4 = np.ones(self.n_sampled)
 
                 if beta == 0:
-                    theta = cube * diff_new + lower_new
+                    cube = circle
                 else:
-                    theta = ((x_1 <= cube) & (cube < x_2)) * (cube * diff_og / beta + lower) + \
-                            ((x_2 <= cube) & (cube < x_3)) * (
-                                    cube + lower_new * (beta / diff_og + (1 - beta) / diff_new) - beta * (
-                                    lower_new - lower) / diff_og) / (beta / diff_og + (1 - beta) / diff_new) + \
-                            ((x_3 <= cube) & (cube <= x_4)) * ((cube - (1 - beta)) * diff_og / beta + lower)
-
+                    cube = (circle < beta * x_lower) * (circle / beta) + (
+                            (circle >= beta * x_lower) & (circle < beta * x_upper + (1 - beta))) * (
+                                   circle + (1 - beta) * x_lower / x_diff) / (beta + (1 - beta) / x_diff) + (
+                                   circle >= beta * x_upper + (1 - beta)) * (circle - (1 - beta)) / beta
+                theta = np.array([self.model.prior.pdf[i].ppf(cube[i]) for i in range(self.n_sampled)])
                 theta_full = np.empty_like(cube_full)
                 theta_full[:-1] = theta
                 theta_full[-1] = beta
