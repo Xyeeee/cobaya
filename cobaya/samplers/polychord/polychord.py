@@ -267,7 +267,6 @@ class polychord(Sampler):
             x_lower = np.array([self.model.prior.pdf[i].cdf(lower_new[i]) for i in range(self.n_sampled)])
             x_diff = x_upper - x_lower
 
-
         # Essentially what is needed here will be the sampled distribution means
 
         # Prepare the polychord likelihood
@@ -293,8 +292,9 @@ class polychord(Sampler):
                 return loglikelihood(theta)[0] + np.log(pi(theta) / pi_tilde(theta, beta)), loglikelihood(theta)[1]
 
         def pi_tilde(theta, beta):
-            return np.product(beta * np.array([self.model.prior.pdf[i].pdf(theta[i]) for i in range(self.n_sampled)]) + (
-                    1 - beta) * ((theta < upper_new) & (theta > lower_new))/diff_new)
+            return np.product(
+                beta * np.array([self.model.prior.pdf[i].pdf(theta[i]) for i in range(self.n_sampled)]) + (
+                        1 - beta) * ((theta < upper_new) & (theta > lower_new)) / diff_new)
 
         def pi(theta):
             return np.product([self.model.prior.pdf[i].pdf(theta[i]) for i in range(self.n_sampled)])
@@ -305,8 +305,7 @@ class polychord(Sampler):
                     circle = np.array([cube_full[i] for i in self.ordering])
                 else:
                     circle = cube_full[:-1]
-                beta_cdf = cube_full[-1]
-                beta = stats.beta.ppf(beta_cdf, 1, 0.5)
+                beta = cube_full[-1]
 
                 if beta == 0:
                     cube = circle
