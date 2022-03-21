@@ -141,6 +141,14 @@ class polychord(Sampler):
                                                   random_state=self._rng)
             blocks, oversampling_factors = self.model.get_param_blocking_for_sampler(
                 oversample_power=self.oversample_power)
+            if self.proposal_mode is not None:
+                # blocks = np.append(blocks, [["beta"]], axis=0)
+                blocks.append(["beta"])
+                self.grade_dims = [len(block) for block in blocks]
+                # self.grade_dims.append(1)
+                oversampling_factors = np.append(oversampling_factors, 1)
+            else:
+                self.grade_dims = [len(block) for block in blocks]
         self.mpi_info("Parameter blocks and their oversampling factors:")
         max_width = len(str(max(oversampling_factors)))
         for f, b in zip(oversampling_factors, blocks):
@@ -158,7 +166,6 @@ class polychord(Sampler):
             else:
                 self.mu = mu
                 self.sig = sig
-        self.grade_dims = [len(block) for block in blocks]
         # Steps per block
         # NB: num_repeats is ignored by PolyChord when int "grade_frac" given,
         # so needs to be applied by hand.
@@ -167,20 +174,12 @@ class polychord(Sampler):
             int(o * read_dnumber(self.num_repeats, dim_block))
             for o, dim_block in zip(oversampling_factors, self.grade_dims)]
         # Assign settings
-        if self.proposal_mode is not None:
-            pc_args = ["nlive", "num_repeats", "nprior", "do_clustering",
-                       "precision_criterion", "max_ndead", "boost_posterior", "feedback",
-                       "logzero", "posteriors", "equals", "compression_factor",
-                       "cluster_posteriors", "write_resume", "read_resume", "write_stats",
-                       "write_live", "write_dead", "base_dir",
-                       "feedback", "read_resume", "base_dir", "file_root"]
-        else:
-            pc_args = ["nlive", "num_repeats", "nprior", "do_clustering",
-                       "feedback", "precision_criterion", "logzero",
-                       "max_ndead", "boost_posterior", "posteriors", "equals",
-                       "cluster_posteriors", "write_resume", "read_resume",
-                       "write_stats", "write_live", "write_dead", "compression_factor", "base_dir",
-                       "file_root", "seed", "grade_dims", "grade_frac"]
+        pc_args = ["nlive", "num_repeats", "nprior", "do_clustering",
+                   "precision_criterion", "max_ndead", "boost_posterior", "feedback",
+                   "logzero", "posteriors", "equals", "compression_factor",
+                   "cluster_posteriors", "write_resume", "read_resume", "write_stats",
+                   "write_live", "write_dead", "base_dir",
+                   "feedback", "read_resume", "base_dir", "file_root", "seed", "grade_dims", "grade_frac"]
         # TODO: Actually fix the dimensionality instead of deleting the pc_arg 'grade_dims'
         # As stated above, num_repeats is ignored, so let's not pass it
         pc_args.pop(pc_args.index("num_repeats"))
