@@ -143,10 +143,10 @@ class polychord(Sampler):
                 oversample_power=self.oversample_power)
             if self.proposal_mode is not None:
                 # blocks = np.append(blocks, [["beta"]], axis=0)
-                blocks.append(["beta"])
+                blocks[0].insert(0, "beta")
                 self.grade_dims = [len(block) for block in blocks]
                 # self.grade_dims.append(1)
-                oversampling_factors = np.append(oversampling_factors, 1)
+                # oversampling_factors = np.append(oversampling_factors, 1)
             else:
                 self.grade_dims = [len(block) for block in blocks]
         self.mpi_info("Parameter blocks and their oversampling factors:")
@@ -283,8 +283,8 @@ class polychord(Sampler):
             return max(loglikes.sum(), self.pc_settings.logzero), derived
 
         def loglikelihood_tilde(theta_full):
-            theta = theta_full[:-1]
-            beta = theta_full[-1]
+            theta = theta_full[1:]
+            beta = theta_full[0]
             if beta == 0:
                 return loglikelihood(theta)
             else:
@@ -303,8 +303,8 @@ class polychord(Sampler):
                 if self.reorder:
                     circle = np.array([cube_full[i] for i in self.ordering])
                 else:
-                    circle = cube_full[:-1]
-                beta = cube_full[-1]
+                    circle = cube_full[1:]
+                beta = cube_full[0]
 
                 if beta == 0:
                     cube = circle
@@ -315,8 +315,8 @@ class polychord(Sampler):
                                    circle >= beta * x_upper + (1 - beta)) * (circle - (1 - beta)) / beta
                 theta = np.array([self.model.prior.pdf[i].ppf(cube[i]) for i in range(self.n_sampled)])
                 theta_full = np.empty_like(cube_full)
-                theta_full[:-1] = theta
-                theta_full[-1] = beta
+                theta_full[1:] = theta
+                theta_full[0] = beta
                 return theta_full
             else:
                 cube = cube_full

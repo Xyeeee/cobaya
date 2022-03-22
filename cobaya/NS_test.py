@@ -2,7 +2,7 @@ from cobaya.run import run
 
 run("NS_default.yaml",
     packages_path="../packages",
-    output="circler/noreorder",
+    output="b/noreorder",
     debug=True,
     stop_at_error=False,
     resume=True,
