@@ -2,7 +2,7 @@ from cobaya.run import run
 
 run("NS_default.yaml",
     packages_path="../packages",
-    output="b/noreorder",
+    output="c/noreorder",
     debug=True,
     stop_at_error=False,
     resume=True,
@@ -11,5 +11,6 @@ run("NS_default.yaml",
     test=False,
     override=None,
     proposal_mode="beta",
-    proposal_source=0
+    proposal_source=0,
+    beta_width=0.1
     )

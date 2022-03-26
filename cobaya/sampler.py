@@ -225,7 +225,7 @@ class Sampler(CobayaComponent):
     # Private methods: just ignore them:
     def __init__(self, info_sampler: SamplerDict, model: Model,
                  output=Optional[Output], packages_path: Optional[str] = None,
-                 name: Optional[str] = None, proposal_mode=None,proposal_source=None):
+                 name: Optional[str] = None, proposal_mode=None,proposal_source=None,beta_width=0.1):
         """
         Actual initialization of the class. Loads the default and input information and
         call the custom ``initialize`` method.
@@ -267,6 +267,7 @@ class Sampler(CobayaComponent):
         self._set_rng()
         self.proposal_mode = proposal_mode
         self.proposal_source = proposal_source
+        self.beta_width = beta_width
         self.initialize()
         model.set_cache_size(self._get_requested_cache_size())
         # Add to the updated info some values which are

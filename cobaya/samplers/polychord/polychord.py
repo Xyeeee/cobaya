@@ -148,7 +148,7 @@ class polychord(Sampler):
                 elif self.proposal_mode == "gamma":
                     blocks[0].insert(0, "gamma")
                 if self.proposal_mode == "scale":
-                    blocks[0].insert(0, "beta")
+                    blocks[0].insert(0, "scale")
                 else:
                     blocks[0].insert(0, "beta")
 
@@ -250,7 +250,7 @@ class polychord(Sampler):
         """
         x_mu = np.array([self.model.prior.pdf[i].cdf(self.mu[i]) for i in range(self.n_sampled)])
         if self.proposal_mode == "beta":
-            self.x_diff = 0.2
+            self.x_diff = self.beta_width
             self.x_upper = x_mu + (1 - x_mu) * self.x_diff
             self.x_lower = x_mu * (1 - self.x_diff)
             self.upper_new = np.array([self.model.prior.pdf[i].ppf(self.x_upper[i]) for i in range(self.n_sampled)])
@@ -340,6 +340,7 @@ class polychord(Sampler):
                 theta_full[self.n_hyperparam:] = theta
                 theta_full[0] = beta
                 return theta_full
+
             elif self.proposal_mode == "scale":
                 scale = cube_full[0]
                 circle = cube_full[self.n_hyperparam:]
