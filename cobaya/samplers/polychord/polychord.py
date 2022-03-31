@@ -149,7 +149,7 @@ class polychord(Sampler):
                 # elif self.proposal_mode == "gamma":
                 #     blocks[0].insert(1, "gamma")
             else:
-                blocks[0].insert(0, "scale")
+                blocks.insert(0, ["scale"])
             oversampling_factors = np.insert(oversampling_factors, 0, 1)
 
         self.grade_dims = [len(block) for block in blocks]
