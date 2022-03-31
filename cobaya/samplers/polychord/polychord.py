@@ -142,15 +142,15 @@ class polychord(Sampler):
                                                   random_state=self._rng)
             blocks, oversampling_factors = self.model.get_param_blocking_for_sampler(
                 oversample_power=self.oversample_power)
-            if self.proposal_mode is not None:
-                if self.proposal_mode == "delta":
-                    blocks[0].insert(0, "delta")
-                elif self.proposal_mode == "gamma":
-                    blocks[0].insert(0, "gamma")
-                if self.proposal_mode == "scale":
-                    blocks[0].insert(0, "scale")
-                else:
-                    blocks[0].insert(0, "beta")
+            if self.proposal_mode is not None and self.proposal_mode != "scale":
+                blocks.insert(0, ["beta"])
+                # if self.proposal_mode == "delta":
+                #     blocks[0].insert(1, "delta")
+                # elif self.proposal_mode == "gamma":
+                #     blocks[0].insert(1, "gamma")
+            else:
+                blocks[0].insert(0, "scale")
+            oversampling_factors = np.insert(oversampling_factors, 0, 1)
 
         self.grade_dims = [len(block) for block in blocks]
         self.mpi_info("Parameter blocks and their oversampling factors:")
@@ -263,8 +263,8 @@ class polychord(Sampler):
 
         # Prepare the polychord likelihood
         def loglikelihood(params_values):
-            if self.reorder:
-                params_values = np.array([params_values[i] for i in np.argsort(self.ordering)])
+            # if self.reorder:
+            #     params_values = np.array([params_values[i] for i in np.argsort(self.ordering)])
             result = self.model.logposterior(params_values)
             loglikes = result.loglikes
             if len(loglikes) != self.n_likes:
@@ -317,16 +317,20 @@ class polychord(Sampler):
                 theta_full = np.empty_like(cube_full)
                 circle = np.array([cube_full[ind] for ind in self.ordering])
                 beta = cube_full[0]
-                if self.proposal_mode == "gamma":
-                    gamma = cube_full[1]
-                    x_upper = x_mu + (1 - x_mu) * gammafunc(gamma)
-                    x_lower = x_mu - x_mu * gammafunc(gamma)
-                    x_diff = x_upper - x_lower
-                    theta_full[1] = gamma
-                else:
-                    x_upper = self.x_upper
-                    x_lower = self.x_lower
-                    x_diff = self.x_diff
+                # if self.proposal_mode == "gamma":
+                #     gamma = cube_full[1]
+                #     x_upper = x_mu + (1 - x_mu) * gammafunc(gamma)
+                #     x_lower = x_mu - x_mu * gammafunc(gamma)
+                #     x_diff = x_upper - x_lower
+                #     theta_full[1] = gamma
+                # else:
+                #     x_upper = self.x_upper
+                #     x_lower = self.x_lower
+                #     x_diff = self.x_diff
+
+                x_upper = self.x_upper
+                x_lower = self.x_lower
+                x_diff = self.x_diff
 
                 if beta == 0:
                     cube = circle
