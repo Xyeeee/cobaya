@@ -344,7 +344,7 @@ class polychord(Sampler):
 
             elif self.proposal_mode == "scale":
                 scale = cube_full[0]
-                circle = np.array([cube_full[ind + self.n_hyperparam] for ind in self.ordering])
+                circle = np.array([cube_full[ind] for ind in self.ordering])
                 x_upper = x_mu + (1 - x_mu) * scale
                 x_lower = x_mu * (1 - scale)
                 x_diff = x_upper - x_lower
