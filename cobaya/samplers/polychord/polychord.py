@@ -315,7 +315,7 @@ class polychord(Sampler):
         def prior(cube_full):
             if self.proposal_mode is not None and self.proposal_mode != "scale":
                 theta_full = np.empty_like(cube_full)
-                circle = cube_full[self.n_hyperparam:]
+                circle = np.array([cube_full[ind] for ind in self.ordering])
                 beta = cube_full[0]
                 if self.proposal_mode == "gamma":
                     gamma = cube_full[1]
@@ -335,6 +335,7 @@ class polychord(Sampler):
                             (circle >= beta * x_lower) & (circle < beta * x_upper + (1 - beta))) * (
                                    circle + (1 - beta) * x_lower / x_diff) / (beta + (1 - beta) / x_diff) + (
                                    circle >= beta * x_upper + (1 - beta)) * (circle - (1 - beta)) / beta
+
                 theta = np.array([self.model.prior.pdf[i].ppf(cube[i]) for i in range(self.n_sampled)])
                 theta_full = np.empty_like(cube_full)
                 theta_full[self.n_hyperparam:] = theta
@@ -343,7 +344,7 @@ class polychord(Sampler):
 
             elif self.proposal_mode == "scale":
                 scale = cube_full[0]
-                circle = cube_full[self.n_hyperparam:]
+                circle = np.array([cube_full[ind + self.n_hyperparam] for ind in self.ordering])
                 x_upper = x_mu + (1 - x_mu) * scale
                 x_lower = x_mu * (1 - scale)
                 x_diff = x_upper - x_lower
