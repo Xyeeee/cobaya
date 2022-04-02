@@ -86,7 +86,7 @@ class polychord(Sampler):
                           "[packages_path]'", packages_path_arg)
         # Prepare arguments and settings
         self.reorder = False
-        nparam_dict = {"normal": 0, "beta": 1, "scale": 1, "gamma": 2, "delta": 2}
+        nparam_dict = {None: 0, "beta": 1, "scale": 1, "gamma": 2, "delta": 2}
         self.n_hyperparam = nparam_dict[self.proposal_mode]
         self.n_sampled = len(self.model.parameterization.sampled_params())
         self.n_derived = len(self.model.parameterization.derived_params())
@@ -144,10 +144,10 @@ class polychord(Sampler):
                 oversample_power=self.oversample_power)
             if self.proposal_mode is not None and self.proposal_mode != "scale":
                 blocks.insert(0, ["beta"])
-                # if self.proposal_mode == "delta":
-                #     blocks[0].insert(1, "delta")
-                # elif self.proposal_mode == "gamma":
-                #     blocks[0].insert(1, "gamma")
+                if self.proposal_mode == "delta":
+                    blocks[0].insert(1, "delta")
+                elif self.proposal_mode == "gamma":
+                    blocks[0].insert(1, "gamma")
             else:
                 blocks.insert(0, ["scale"])
             oversampling_factors = np.insert(oversampling_factors, 0, 1)
@@ -316,21 +316,17 @@ class polychord(Sampler):
             if self.proposal_mode is not None and self.proposal_mode != "scale":
                 theta_full = np.empty_like(cube_full)
                 circle = np.array([cube_full[ind] for ind in self.ordering])
-                beta = cube_full[0]
-                # if self.proposal_mode == "gamma":
-                #     gamma = cube_full[1]
-                #     x_upper = x_mu + (1 - x_mu) * gammafunc(gamma)
-                #     x_lower = x_mu - x_mu * gammafunc(gamma)
-                #     x_diff = x_upper - x_lower
-                #     theta_full[1] = gamma
-                # else:
-                #     x_upper = self.x_upper
-                #     x_lower = self.x_lower
-                #     x_diff = self.x_diff
-
-                x_upper = self.x_upper
-                x_lower = self.x_lower
-                x_diff = self.x_diff
+                beta = stats.beta.ppf(cube_full[0], 1, 0.5)
+                if self.proposal_mode == "gamma":
+                    gamma = cube_full[1]
+                    x_upper = x_mu + (1 - x_mu) * gammafunc(gamma)
+                    x_lower = x_mu - x_mu * gammafunc(gamma)
+                    x_diff = x_upper - x_lower
+                    theta_full[1] = gamma
+                else:
+                    x_upper = self.x_upper
+                    x_lower = self.x_lower
+                    x_diff = self.x_diff
 
                 if beta == 0:
                     cube = circle
