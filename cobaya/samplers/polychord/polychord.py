@@ -250,12 +250,20 @@ class polychord(Sampler):
         """
         x_mu = np.array([self.model.prior.pdf[i].cdf(self.mu[i]) for i in range(self.n_sampled)])
         if self.proposal_mode == "beta":
-            self.x_diff = self.beta_width
-            self.x_upper = x_mu + (1 - x_mu) * self.x_diff
-            self.x_lower = x_mu * (1 - self.x_diff)
-            self.upper_new = np.array([self.model.prior.pdf[i].ppf(self.x_upper[i]) for i in range(self.n_sampled)])
-            self.lower_new = np.array([self.model.prior.pdf[i].ppf(self.x_lower[i]) for i in range(self.n_sampled)])
-            self.diff_new = self.upper_new - self.lower_new
+            # self.x_diff = self.beta_width
+            # self.x_upper = x_mu + (1 - x_mu) * self.x_diff
+            # self.x_lower = x_mu * (1 - self.x_diff)
+            # self.upper_new = np.array([self.model.prior.pdf[i].ppf(self.x_upper[i]) for i in range(self.n_sampled)])
+            # self.lower_new = np.array([self.model.prior.pdf[i].ppf(self.x_lower[i]) for i in range(self.n_sampled)])
+            # self.diff_new = self.upper_new - self.lower_new
+            self.x_upper = np.array(
+                [self.model.prior.pdf[i].cdf(self.mu[i] + self.sig[i]) for i in range(self.n_sampled)])
+            self.x_lower = np.array(
+                [self.model.prior.pdf[i].cdf(self.mu[i] - self.sig[i]) for i in range(self.n_sampled)])
+            self.x_diff = self.x_upper - self.x_lower
+            self.upper_new = self.mu + self.sig
+            self.lower_new = self.mu - self.sig
+            self.diff_new = 2 * self.sig
         elif self.proposal_mode == "gamma":
             gammafunc = lambda x: 0.49 * x + 0.01
 
