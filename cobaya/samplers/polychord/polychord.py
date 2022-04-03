@@ -142,15 +142,16 @@ class polychord(Sampler):
                                                   random_state=self._rng)
             blocks, oversampling_factors = self.model.get_param_blocking_for_sampler(
                 oversample_power=self.oversample_power)
-            if self.proposal_mode is not None and self.proposal_mode != "scale":
-                blocks.insert(0, ["beta"])
-                if self.proposal_mode == "delta":
-                    blocks[0].insert(1, "delta")
-                elif self.proposal_mode == "gamma":
-                    blocks[0].insert(1, "gamma")
-            else:
-                blocks.insert(0, ["scale"])
-            oversampling_factors = np.insert(oversampling_factors, 0, 1)
+            if self.proposal_mode is not None:
+                if self.proposal_mode != "scale":
+                    blocks.insert(0, ["beta"])
+                    if self.proposal_mode == "delta":
+                        blocks[0].insert(1, "delta")
+                    elif self.proposal_mode == "gamma":
+                        blocks[0].insert(1, "gamma")
+                else:
+                    blocks.insert(0, ["scale"])
+                oversampling_factors = np.insert(oversampling_factors, 0, 1)
 
         self.grade_dims = [len(block) for block in blocks]
         self.mpi_info("Parameter blocks and their oversampling factors:")
@@ -248,14 +249,7 @@ class polychord(Sampler):
         """
         Prepares the posterior function and calls ``PolyChord``'s ``run`` function.
         """
-        x_mu = np.array([self.model.prior.pdf[i].cdf(self.mu[i]) for i in range(self.n_sampled)])
         if self.proposal_mode == "beta":
-            # self.x_diff = self.beta_width
-            # self.x_upper = x_mu + (1 - x_mu) * self.x_diff
-            # self.x_lower = x_mu * (1 - self.x_diff)
-            # self.upper_new = np.array([self.model.prior.pdf[i].ppf(self.x_upper[i]) for i in range(self.n_sampled)])
-            # self.lower_new = np.array([self.model.prior.pdf[i].ppf(self.x_lower[i]) for i in range(self.n_sampled)])
-            # self.diff_new = self.upper_new - self.lower_new
             self.upper_new = self.mu + self.beta_width * self.sig
             self.lower_new = self.mu - self.beta_width * self.sig
             self.x_upper = np.array(
@@ -265,10 +259,9 @@ class polychord(Sampler):
                 [self.model.prior.pdf[i].cdf(self.lower_new[i]) for i in
                  range(self.n_sampled)])
             self.x_diff = self.x_upper - self.x_lower
-
             self.diff_new = 2 * self.sig * self.beta_width
-        elif self.proposal_mode == "gamma":
-            gammafunc = lambda x: 0.49 * x + 0.01
+        elif self.proposal_mode == 'scale':
+            x_mu = np.array([self.model.prior.pdf[i].cdf(self.mu[i]) for i in range(self.n_sampled)])
 
         # Essentially what is needed here will be the sampled distribution means
 
@@ -311,11 +304,9 @@ class polychord(Sampler):
                         1 - beta) * ((theta < self.upper_new) & (theta > self.lower_new)) / self.diff_new)
 
         def pi_tilde_gamma(theta, beta, gamma):
-            x_upper = x_mu + (1 - x_mu) * gammafunc(gamma)
-            x_lower = x_mu - x_mu * gammafunc(gamma)
-            upper_new = np.array([self.model.prior.pdf[i].ppf(x_upper[i]) for i in range(self.n_sampled)])
-            lower_new = np.array([self.model.prior.pdf[i].ppf(x_lower[i]) for i in range(self.n_sampled)])
-            diff_new = upper_new - lower_new
+            upper_new = self.mu + gamma * 5 * self.sig
+            lower_new = self.mu - gamma * 5 * self.sig
+            diff_new = 2 * gamma * 5 * self.sig
             return np.product(
                 beta * np.array([self.model.prior.pdf[i].pdf(theta[i]) for i in range(self.n_sampled)]) + (
                         1 - beta) * ((theta < upper_new) & (theta > lower_new)) / diff_new)
@@ -330,8 +321,12 @@ class polychord(Sampler):
                 beta = stats.beta.ppf(cube_full[0], 1, 0.5)
                 if self.proposal_mode == "gamma":
                     gamma = cube_full[1]
-                    x_upper = x_mu + (1 - x_mu) * gammafunc(gamma)
-                    x_lower = x_mu - x_mu * gammafunc(gamma)
+                    x_upper = np.array(
+                        [self.model.prior.pdf[i].cdf(self.mu[i] + gamma * 5 * self.sig[i]) for i in
+                         range(self.n_sampled)])
+                    x_lower = np.array(
+                        [self.model.prior.pdf[i].cdf(self.mu[i] - gamma * 5 * self.sig[i]) for i in
+                         range(self.n_sampled)])
                     x_diff = x_upper - x_lower
                     theta_full[1] = gamma
                 else:
