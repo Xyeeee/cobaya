@@ -168,8 +168,8 @@ class polychord(Sampler):
                 self.mu = np.array([mu[ind] for ind in self.ordering])
                 self.sig = np.array([sig[ind] for ind in self.ordering])
             else:
-                self.mu = mu
-                self.sig = sig
+                self.mu = np.array(mu)
+                self.sig = np.array(sig)
         # Steps per block
         # NB: num_repeats is ignored by PolyChord when int "grade_frac" given,
         # so needs to be applied by hand.
@@ -256,14 +256,17 @@ class polychord(Sampler):
             # self.upper_new = np.array([self.model.prior.pdf[i].ppf(self.x_upper[i]) for i in range(self.n_sampled)])
             # self.lower_new = np.array([self.model.prior.pdf[i].ppf(self.x_lower[i]) for i in range(self.n_sampled)])
             # self.diff_new = self.upper_new - self.lower_new
+            self.upper_new = self.mu + self.beta_width * self.sig
+            self.lower_new = self.mu - self.beta_width * self.sig
             self.x_upper = np.array(
-                [self.model.prior.pdf[i].cdf(self.mu[i] + self.sig[i]) for i in range(self.n_sampled)])
+                [self.model.prior.pdf[i].cdf(self.upper_new[i]) for i in
+                 range(self.n_sampled)])
             self.x_lower = np.array(
-                [self.model.prior.pdf[i].cdf(self.mu[i] - self.sig[i]) for i in range(self.n_sampled)])
+                [self.model.prior.pdf[i].cdf(self.lower_new[i]) for i in
+                 range(self.n_sampled)])
             self.x_diff = self.x_upper - self.x_lower
-            self.upper_new = self.mu + self.sig
-            self.lower_new = self.mu - self.sig
-            self.diff_new = 2 * self.sig
+
+            self.diff_new = 2 * self.sig * self.beta_width
         elif self.proposal_mode == "gamma":
             gammafunc = lambda x: 0.49 * x + 0.01
 
