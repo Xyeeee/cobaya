@@ -2,7 +2,7 @@ from cobaya.run import run
 
 run("NS_default.yaml",
     packages_path="../packages",
-    output="m/default",
+    output="a/default",
     debug=True,
     stop_at_error=False,
     resume=False,
@@ -10,7 +10,7 @@ run("NS_default.yaml",
     no_mpi=True,
     test=False,
     override=None,
-    proposal_mode="gamma",
-    proposal_source=0,
+    proposal_mode="beta",
+    proposal_source=1,
     beta_width=3
     )

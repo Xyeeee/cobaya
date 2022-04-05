@@ -54,21 +54,31 @@ class polychord(Sampler):
     nlive: NumberWithUnits
     path: str
 
+    # def get_proposal(self, sampler):
+    #     if sampler == 0:  # 0th sampler is by default Polychord
+    #         f = open("chains/test.stats", "r")
+    #         lines = f.readlines()
+    #         mu = []
+    #         sig = []
+    #         for entry in lines[30: 30 + self.n_sampled]:
+    #             mu.append(float(entry.split()[1]))
+    #             sig.append(float(entry.split()[3]))
+    #     elif sampler == 1:
+    #         from anesthetic import MCMCSamples
+    #         root = "icelake/camb_default"
+    #         planck_samples = MCMCSamples(root=root)
+    #         mu = planck_samples.mean().values[:27]
+    #         sig = np.diag(planck_samples.cov().values)[:27]
+    #     return mu, sig
+
     def get_proposal(self, sampler):
-        if sampler == 0:  # 0th sampler is by default Polychord
-            f = open("chains/test.stats", "r")
-            lines = f.readlines()
-            mu = []
-            sig = []
-            for entry in lines[30: 30 + self.n_sampled]:
-                mu.append(float(entry.split()[1]))
-                sig.append(float(entry.split()[3]))
-        elif sampler == 1:
-            from anesthetic import MCMCSamples
-            root = "icelake/camb_default"
-            planck_samples = MCMCSamples(root=root)
-            mu = planck_samples.mean().values[:27]
-            sig = np.diag(planck_samples.cov().values)[:27]
+        f = open("chains/test.stats", "r")
+        lines = f.readlines()
+        mu = []
+        sig = []
+        for entry in lines[30: 30 + self.n_sampled]:
+            mu.append(float(entry.split()[1]))
+            sig.append(float(entry.split()[3]))
         return mu, sig
 
     def initialize(self):
@@ -143,15 +153,25 @@ class polychord(Sampler):
             blocks, oversampling_factors = self.model.get_param_blocking_for_sampler(
                 oversample_power=self.oversample_power)
             if self.proposal_mode is not None:
-                if self.proposal_mode != "scale":
-                    blocks.insert(0, ["beta"])
-                    if self.proposal_mode == "delta":
-                        blocks[0].insert(1, "delta")
-                    elif self.proposal_mode == "gamma":
-                        blocks[0].insert(1, "gamma")
+                if self.proposal_source == 0:
+                    if self.proposal_mode != "scale":
+                        blocks.insert(0, ["beta"])
+                        if self.proposal_mode == "delta":
+                            blocks[0].insert(1, "delta")
+                        elif self.proposal_mode == "gamma":
+                            blocks[0].insert(1, "gamma")
+                    else:
+                        blocks.insert(0, ["scale"])
+                    oversampling_factors = np.insert(oversampling_factors, 0, 1)
                 else:
-                    blocks.insert(0, ["scale"])
-                oversampling_factors = np.insert(oversampling_factors, 0, 1)
+                    if self.proposal_mode != "scale":
+                        blocks[0].insert(0, "beta")
+                        if self.proposal_mode == "delta":
+                            blocks[0].insert(1, "delta")
+                        elif self.proposal_mode == "gamma":
+                            blocks[0].insert(1, "gamma")
+                    else:
+                        blocks[0].insert(0, "scale")
 
         self.grade_dims = [len(block) for block in blocks]
         self.mpi_info("Parameter blocks and their oversampling factors:")
@@ -185,7 +205,6 @@ class polychord(Sampler):
                    "cluster_posteriors", "write_resume", "read_resume", "write_stats",
                    "write_live", "write_dead", "base_dir",
                    "feedback", "read_resume", "base_dir", "file_root", "seed", "grade_dims", "grade_frac"]
-        # TODO: Actually fix the dimensionality instead of deleting the pc_arg 'grade_dims'
         # As stated above, num_repeats is ignored, so let's not pass it
         pc_args.pop(pc_args.index("num_repeats"))
         settings: Any = load_module('pypolychord.settings', path=self._poly_build_path,
@@ -318,7 +337,7 @@ class polychord(Sampler):
             if self.proposal_mode is not None and self.proposal_mode != "scale":
                 theta_full = np.empty_like(cube_full)
                 circle = np.array([cube_full[ind] for ind in self.ordering])
-                beta = stats.beta.ppf(cube_full[0], 1, 0.5)
+                beta = stats.beta.ppf(cube_full[0], 1, 3)
                 if self.proposal_mode == "gamma":
                     gamma = cube_full[1]
                     x_upper = np.array(
