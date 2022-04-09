@@ -16,6 +16,7 @@ from typing import Any, Callable, Optional
 from tempfile import gettempdir
 import re
 import os
+import matplotlib.pyplot as plt
 # Local
 from cobaya.tools import read_dnumber, get_external_function, \
     find_with_regexp, NumberWithUnits, load_module, VersionCheckError
@@ -268,6 +269,9 @@ class polychord(Sampler):
         """
         Prepares the posterior function and calls ``PolyChord``'s ``run`` function.
         """
+
+        import time
+
         if self.proposal_mode == "beta":
             self.upper_new = self.mu + self.beta_width * self.sig
             self.lower_new = self.mu - self.beta_width * self.sig
@@ -313,22 +317,28 @@ class polychord(Sampler):
                 elif self.proposal_mode == "beta":
                     return loglikelihood(theta)[0] + np.log(pi(theta) / pi_tilde_beta(theta, beta)), \
                            loglikelihood(theta)[1]
-                elif self.proposal_mode == "gamma":
-                    return loglikelihood(theta)[0] + np.log(pi(theta) / pi_tilde_gamma(theta, beta, gamma)), \
-                           loglikelihood(theta)[1]
+                # elif self.proposal_mode == "gamma":
+                #     return loglikelihood(theta)[0] + np.log(pi(theta) / pi_tilde_gamma(theta, beta, gamma)), \
+                #            loglikelihood(theta)[1]
+
+        def loglikelihood_beta(theta_full):
+            theta = theta_full[1:]
+            beta = theta_full[0]
+            llh = loglikelihood(theta)
+            return llh[0] + np.log(pi(theta) / pi_tilde_beta(theta, beta)), llh[1]
 
         def pi_tilde_beta(theta, beta):
             return np.product(
                 beta * np.array([self.model.prior.pdf[i].pdf(theta[i]) for i in range(self.n_sampled)]) + (
                         1 - beta) * ((theta < self.upper_new) & (theta > self.lower_new)) / self.diff_new)
 
-        def pi_tilde_gamma(theta, beta, gamma):
-            upper_new = self.mu + gamma * 5 * self.sig
-            lower_new = self.mu - gamma * 5 * self.sig
-            diff_new = 2 * gamma * 5 * self.sig
-            return np.product(
-                beta * np.array([self.model.prior.pdf[i].pdf(theta[i]) for i in range(self.n_sampled)]) + (
-                        1 - beta) * ((theta < upper_new) & (theta > lower_new)) / diff_new)
+        # def pi_tilde_gamma(theta, beta, gamma):
+        #     upper_new = self.mu + gamma * 5 * self.sig
+        #     lower_new = self.mu - gamma * 5 * self.sig
+        #     diff_new = 2 * gamma * 5 * self.sig
+        #     return np.product(
+        #         beta * np.array([self.model.prior.pdf[i].pdf(theta[i]) for i in range(self.n_sampled)]) + (
+        #                 1 - beta) * ((theta < upper_new) & (theta > lower_new)) / diff_new)
 
         def pi(theta):
             return np.product([self.model.prior.pdf[i].pdf(theta[i]) for i in range(self.n_sampled)])
@@ -337,10 +347,8 @@ class polychord(Sampler):
             if self.proposal_mode is not None and self.proposal_mode != "scale":
                 theta_full = np.empty_like(cube_full)
                 circle = np.array([cube_full[ind] for ind in self.ordering])
-                if self.beta_width is not 0:
-                    beta = stats.beta.ppf(cube_full[0], 1, 3)
-                else:
-                    beta = cube_full[0]
+                # beta = stats.beta.ppf(cube_full[0], 1, 3)
+                beta = cube_full[0]
                 if self.proposal_mode == "gamma":
                     gamma = cube_full[1]
                     x_upper = np.array(
@@ -363,10 +371,8 @@ class polychord(Sampler):
                             (circle >= beta * x_lower) & (circle < beta * x_upper + (1 - beta))) * (
                                    circle + (1 - beta) * x_lower / x_diff) / (beta + (1 - beta) / x_diff) + (
                                    circle >= beta * x_upper + (1 - beta)) * (circle - (1 - beta)) / beta
-
-                theta = np.array([self.model.prior.pdf[i].ppf(cube[i]) for i in range(self.n_sampled)])
                 theta_full = np.empty_like(cube_full)
-                theta_full[self.n_hyperparam:] = theta
+                theta_full[self.n_hyperparam:] = [self.model.prior.pdf[i].ppf(cube[i]) for i in range(self.n_sampled)]
                 theta_full[0] = beta
                 return theta_full
 
@@ -389,17 +395,51 @@ class polychord(Sampler):
                     theta[i] = self.model.prior.pdf[i].ppf(xi)
                 return theta
 
-        if is_main_process():
-            self.dump_paramnames(self.raw_prefix)
-        sync_processes()
-        self.mpi_info("Calling PolyChord...")
-        if self.proposal_mode is not None:
-            self.pc.run_polychord(loglikelihood_tilde, self.nDims, self.nDerived, self.pc_settings,
-                                  prior, self.dumper)
-        else:
-            self.pc.run_polychord(loglikelihood, self.nDims, self.nDerived, self.pc_settings,
-                                  prior, self.dumper)
-        self.process_raw_output()
+        # if is_main_process():
+        #     self.dump_paramnames(self.raw_prefix)
+        # sync_processes()
+        # self.mpi_info("Calling PolyChord...")
+        # if self.proposal_mode is not None:
+        #     self.pc.run_polychord(loglikelihood_tilde, self.nDims, self.nDerived, self.pc_settings,
+        #                           prior, self.dumper)
+        # else:
+        #     self.pc.run_polychord(loglikelihood, self.nDims, self.nDerived, self.pc_settings,
+        #                           prior, self.dumper)
+        # self.process_raw_output()
+
+        plt.switch_backend("TkAgg")
+        rand_inp = np.random.rand(1000, self.nDims)
+        input = [prior(x) for x in rand_inp]
+        start_time = time.time()
+
+        outputs = np.array([
+            [loglikelihood_beta(rand_in)[0], time.time()]
+            for rand_in in input
+        ])
+
+        outputs[:, 1] = outputs[:, 1] - start_time
+        outputs[1:, 1] = outputs[1:, 1] - outputs[:-1, 1]
+        outputs[:, 1] = outputs[:, 1]
+
+        outputs = outputs[(outputs[:, 0] > -1.00000000e+29),:]
+
+        plt.scatter(outputs[:, 0], outputs[:, 1])
+        plt.show()
+
+        # input = [prior(x) for x in rand_inp]
+        # start_time = time.time()
+        # output = [loglikelihood(x) for x in input]
+        # pp.run_polychord(loglikelihood_tilde, nDims, nDerived, settings, prior=prior)
+        # end_time = time.time()
+        # valid_point = 0
+        # for outie in output:
+        #     if not np.isnan(outie[1]).any():
+        #         valid_point += 1
+        # time = (end_time - start_time) / 50
+        # if valid_point is not 0:
+        #     time_per_validpoint = (end_time - start_time) / valid_point
+        print("/n")
+        print("Speed = {}".format((end_time - start_time) / 50))
 
     @property
     def raw_prefix(self):

@@ -128,4 +128,7 @@ params:
   rdrag:
     latex: r_\mathrm{drag}
 sampler:
-  polychord: {}
+  polychord:
+    write_resume: False
+    read_resume: False
+    nlive: 100
