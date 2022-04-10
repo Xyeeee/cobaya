@@ -337,7 +337,7 @@ class polychord(Sampler):
             if self.proposal_mode is not None and self.proposal_mode != "scale":
                 theta_full = np.empty_like(cube_full)
                 circle = np.array([cube_full[ind] for ind in self.ordering])
-                if self.beta_width is not 0:
+                if self.beta_width != 0:
                     beta = stats.beta.ppf(cube_full[0], 1, 3)
                 else:
                     beta = cube_full[0]
