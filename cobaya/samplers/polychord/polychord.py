@@ -269,8 +269,8 @@ class polychord(Sampler):
         Prepares the posterior function and calls ``PolyChord``'s ``run`` function.
         """
         if self.proposal_mode == "beta":
-            self.upper_new = self.mu + 5 * self.sig
-            self.lower_new = self.mu - 5 * self.sig
+            self.upper_new = self.mu + self.beta_width * self.sig
+            self.lower_new = self.mu - self.beta_width * self.sig
             self.x_upper = np.array(
                 [self.model.prior.pdf[i].cdf(self.upper_new[i]) for i in
                  range(self.n_sampled)])
@@ -278,7 +278,7 @@ class polychord(Sampler):
                 [self.model.prior.pdf[i].cdf(self.lower_new[i]) for i in
                  range(self.n_sampled)])
             self.x_diff = self.x_upper - self.x_lower
-            self.diff_new = 10 * self.sig
+            self.diff_new = 2 * self.beta_width * self.sig
         elif self.proposal_mode == 'scale':
             x_mu = np.array([self.model.prior.pdf[i].cdf(self.mu[i]) for i in range(self.n_sampled)])
 
