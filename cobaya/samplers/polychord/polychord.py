@@ -337,10 +337,11 @@ class polychord(Sampler):
             if self.proposal_mode is not None and self.proposal_mode != "scale":
                 theta_full = np.empty_like(cube_full)
                 circle = np.array([cube_full[ind] for ind in self.ordering])
-                if self.beta_width != 0:
-                    beta = stats.beta.ppf(cube_full[0], 1, 3)
-                else:
-                    beta = cube_full[0]
+                beta = 0
+                # if self.beta_width != 0:
+                #     beta = stats.beta.ppf(cube_full[0], 1, 3)
+                # else:
+                #     beta = cube_full[0]
                 if self.proposal_mode == "gamma":
                     gamma = cube_full[1]
                     x_upper = np.array(
@@ -356,13 +357,13 @@ class polychord(Sampler):
                     x_lower = self.x_lower
                     x_diff = self.x_diff
 
-                if beta == 0:
-                    cube = circle
-                else:
-                    cube = (circle < beta * x_lower) * (circle / beta) + (
-                            (circle >= beta * x_lower) & (circle < beta * x_upper + (1 - beta))) * (
-                                   circle + (1 - beta) * x_lower / x_diff) / (beta + (1 - beta) / x_diff) + (
-                                   circle >= beta * x_upper + (1 - beta)) * (circle - (1 - beta)) / beta
+                # if beta == 0:
+                cube = circle
+                # else:
+                #     cube = (circle < beta * x_lower) * (circle / beta) + (
+                #             (circle >= beta * x_lower) & (circle < beta * x_upper + (1 - beta))) * (
+                #                    circle + (1 - beta) * x_lower / x_diff) / (beta + (1 - beta) / x_diff) + (
+                #                    circle >= beta * x_upper + (1 - beta)) * (circle - (1 - beta)) / beta
 
                 theta = np.array([self.model.prior.pdf[i].ppf(cube[i]) for i in range(self.n_sampled)])
                 theta_full = np.empty_like(cube_full)
