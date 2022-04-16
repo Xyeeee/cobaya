@@ -2,7 +2,7 @@ from cobaya.run import run
 
 run("NS_default.yaml",
     packages_path="../packages",
-    output="speed/default",
+    output="spd/default",
     debug=False,
     stop_at_error=False,
     resume=False,
