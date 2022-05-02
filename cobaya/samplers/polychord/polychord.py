@@ -27,7 +27,8 @@ from cobaya.install import download_github_release, NotInstalledError
 from cobaya.yamll import yaml_dump_file
 from cobaya.conventions import derived_par_name_separator, packages_path_arg, Extension
 from scipy import stats
-
+import tensorflow as tf
+from keras import layers
 
 class polychord(Sampler):
     r"""
@@ -95,13 +96,25 @@ class polychord(Sampler):
                           "To install it, run 'cobaya-install polychord --%s "
                           "[packages_path]'", packages_path_arg)
         # Prepare arguments and settings
+        num_states = 7
+        num_actions = 1
+        inputs = layers.Input(shape=(num_states,))
+        out = layers.Dense(256, activation="relu")(inputs)
+        out = layers.Dense(256, activation="relu")(out)
+        outputs = layers.Dense(num_actions, activation="tanh")(out)
+
+        outputs = (1 + outputs) / 2
+        actor_model = tf.keras.Model(inputs, outputs)
+        actor_model.load_weights("/mnt/c/Users/Yaqin/PycharmProjects/cobaya/cobaya/actor_weights.h5")
+        self.actor_model = actor_model
         self.reorder = False
-        nparam_dict = {None: 0, "beta": 1, "scale": 1, "gamma": 2, "delta": 2}
+        nparam_dict = {None: 0, "beta": 1, "external": 0, "scale": 1, "gamma": 2, "delta": 2}
         self.n_hyperparam = nparam_dict[self.proposal_mode]
         self.n_sampled = len(self.model.parameterization.sampled_params())
         self.n_derived = len(self.model.parameterization.derived_params())
         self.n_priors = len(self.model.prior)
         self.n_likes = len(self.model.likelihood)
+        self.beta = 1
         if self.proposal_mode is not None:
             self.nDims = self.model.prior.d() + self.n_hyperparam
         else:
@@ -152,7 +165,7 @@ class polychord(Sampler):
                                                   random_state=self._rng)
             blocks, oversampling_factors = self.model.get_param_blocking_for_sampler(
                 oversample_power=self.oversample_power)
-            if self.proposal_mode is not None:
+            if self.proposal_mode is not None and self.proposal_mode != "external":
                 if self.proposal_source == 0:
                     if self.proposal_mode != "scale":
                         blocks.insert(0, ["beta"])
@@ -183,7 +196,7 @@ class polychord(Sampler):
         blocks_flat = list(chain(*blocks))
         self.ordering = [
             blocks_flat.index(p) for p in self.model.parameterization.sampled_params()]
-        if self.proposal_mode is not None and self.n_hyperparam != 0:
+        if self.proposal_mode is not None:
             mu, sig = self.get_proposal(self.proposal_source)
             if self.reorder:
                 self.mu = np.array([mu[ind] for ind in self.ordering])
@@ -256,6 +269,41 @@ class polychord(Sampler):
                                self.n_likes])
         self.logZ, self.logZstd = logZ, logZstd
         self._correct_unphysical_fraction()
+        with open('{}/default.stats'.format(self.base_dir), 'r') as f:
+            for _ in range(15):
+                line = f.readline()
+            logZs = []
+            logZerrs = []
+            while line[:5] == 'log(Z':
+                logZs.append(float(re.findall(r'=(.*)', line
+                                              )[0].split()[0]))
+                logZerrs.append(float(re.findall(r'=(.*)', line
+                                                 )[0].split()[2]))
+
+                line = f.readline()
+
+            for _ in range(5):
+                f.readline()
+
+            ncluster = len(logZs)
+            nposterior = int(f.readline().split()[1])
+            nequals = int(f.readline().split()[1])
+            n_dead = int(f.readline().split()[1])
+            nlive = int(f.readline().split()[1])
+            # Protect against ValueError when .stats file has ******* for nlike
+            # (occurs when nlike is too big).
+            try:
+                nlike = int(f.readline().split()[1])
+            except ValueError:
+                nlike = 1e30
+            line = f.readline()
+            line = line.split()
+            i = line.index('(')
+            avnlike = [float(x) for x in line[1:i]]
+        state = np.array([ncluster, nposterior, nequals, n_dead, nlive, nlike, avnlike[0]])
+        tf_prev_state = tf.expand_dims(tf.convert_to_tensor(state), 0)
+        self.beta -= self.actor_model.predict(tf_prev_state) * 0.1
+
         # Callback function
         if self.callback_function is not None:
             try:
@@ -268,9 +316,6 @@ class polychord(Sampler):
         """
         Prepares the posterior function and calls ``PolyChord``'s ``run`` function.
         """
-        # ratio = self.sig / self.mu
-        # upper_new = self.mu + (1 + (self.beta_width - 1) * (1 - ratio)) * self.sig
-        # lower_new = self.mu - (1 + (self.beta_width - 1) * (1 - ratio)) * self.sig
         upper_new = self.mu + self.beta_width * self.sig
         lower_new = self.mu - self.beta_width * self.sig
         x_upper = np.array(
@@ -288,10 +333,6 @@ class polychord(Sampler):
         x_diff = x_upper - x_lower
         diff_new = upper - lower
 
-        # elif self.proposal_mode == 'scale':
-        #     x_mu = np.array([self.model.prior.pdf[i].cdf(self.mu[i]) for i in range(self.n_sampled)])
-
-        # Prepare the polychord likelihood
         def loglikelihood(params_values):
             # if self.reorder:
             #     params_values = np.array([params_values[i] for i in np.argsort(self.ordering)])
@@ -305,7 +346,7 @@ class polychord(Sampler):
             derived = list(derived) + list(result.logpriors) + list(loglikes)
             return max(loglikes.sum(), self.pc_settings.logzero), derived
 
-        def loglikelihood_tilde(theta_full):
+        def loglikelihood_tilde_prime(theta_full):
             theta = theta_full[self.n_hyperparam:]
             beta = theta_full[0]
             if beta == 0:
@@ -314,92 +355,50 @@ class polychord(Sampler):
                 return loglikelihood(theta)[0] + np.log(pi(theta) / pi_tilde_beta(theta, beta)), \
                        loglikelihood(theta)[1]
 
-        # def loglikelihood_tilde(theta_full):
-
-        #     theta = theta_full[self.n_hyperparam:]
-        #     if self.proposal_mode == "scale":
-        #         scale = theta_full[0]
-        #         theta = theta_full[1:]
-        #         return loglikelihood(theta)[0] + self.n_sampled * np.log(scale), loglikelihood(theta)[1]
-        #     else:
-        #         beta = theta_full[0]
-        #         if self.proposal_mode == "gamma":
-        #             gamma = theta_full[1]
-        #         if beta == 0:
-        #             return loglikelihood(theta)
-        #         elif self.proposal_mode == "beta":
-        #             return loglikelihood(theta)[0] + np.log(pi(theta) / pi_tilde_beta(theta, beta)), \
-        #                    loglikelihood(theta)[1]
-        #         elif self.proposal_mode == "gamma":
-        #             return loglikelihood(theta)[0] + np.log(pi(theta) / pi_tilde_gamma(theta, beta, gamma)), \
-        #                    loglikelihood(theta)[1]
+        def loglikelihood_tilde(theta):
+            if self.beta == 0:
+                return loglikelihood(theta)
+            else:
+                return loglikelihood(theta)[0] + np.log(pi(theta) / pi_tilde_beta(theta, self.beta)), \
+                       loglikelihood(theta)[1]
 
         def pi_tilde_beta(theta, beta):
             return np.product(
                 beta * np.array([self.model.prior.pdf[i].pdf(theta[i]) for i in range(self.n_sampled)]) + (
                         1 - beta) * ((theta < upper) & (theta > lower)) / diff_new)
 
-        # def pi_tilde_gamma(theta, beta, gamma):
-        #     upper_new = self.mu + gamma * 5 * self.sig
-        #     lower_new = self.mu - gamma * 5 * self.sig
-        #     diff_new = 2 * gamma * 5 * self.sig
-        #     return np.product(
-        #         beta * np.array([self.model.prior.pdf[i].pdf(theta[i]) for i in range(self.n_sampled)]) + (
-        #                 1 - beta) * ((theta < upper_new) & (theta > lower_new)) / diff_new)
-
         def pi(theta):
             return np.product([self.model.prior.pdf[i].pdf(theta[i]) for i in range(self.n_sampled)])
 
-        def prior(cube_full):
-            # if self.proposal_mode is not None and self.proposal_mode != "scale":
-            # if self.proposal_mode == "gamma":
-            #     gamma = cube_full[1]
-            #     x_upper = np.array(
-            #         [self.model.prior.pdf[i].cdf(self.mu[i] + gamma * 5 * self.sig[i]) for i in
-            #          range(self.n_sampled)])
-            #     x_lower = np.array(
-            #         [self.model.prior.pdf[i].cdf(self.mu[i] - gamma * 5 * self.sig[i]) for i in
-            #          range(self.n_sampled)])
-            #     x_diff = x_upper - x_lower
-            #     theta_full[1] = gamma
-            # else:
-            #     x_upper = self.x_upper
-            #     x_lower = self.x_lower
-            #     x_diff = self.x_diff
+        def prior_prime(cube_full):
             circle = np.array([cube_full[ind] for ind in self.ordering])
             beta = stats.beta.ppf(cube_full[0], 1, 3)
+            theta_full = np.empty_like(cube_full)
             if beta == 0:
                 cube = circle
+                theta_full[self.n_hyperparam:] = cube * x_diff + x_lower
             else:
                 cube = (circle < beta * x_lower) * (circle / beta) + (
                         (circle >= beta * x_lower) & (circle < beta * x_upper + (1 - beta))) * (
                                circle + (1 - beta) * x_lower / x_diff) / (beta + (1 - beta) / x_diff) + (
                                circle >= beta * x_upper + (1 - beta)) * (circle - (1 - beta)) / beta
 
-            theta = np.array([self.model.prior.pdf[i].ppf(cube[i]) for i in range(self.n_sampled)])
-            theta_full = np.empty_like(cube_full)
-            theta_full[self.n_hyperparam:] = theta
+                theta = np.array([self.model.prior.pdf[i].ppf(cube[i]) for i in range(self.n_sampled)])
+                theta_full[self.n_hyperparam:] = theta
             theta_full[0] = beta
             return theta_full
 
-            # elif self.proposal_mode == "scale":
-            #     scale = cube_full[0]
-            #     circle = np.array([cube_full[ind] for ind in self.ordering])
-            #     x_upper = x_mu + (1 - x_mu) * scale
-            #     x_lower = x_mu * (1 - scale)
-            #     x_diff = x_upper - x_lower
-            #     cube = circle * x_diff + x_lower
-            #     theta = np.array([self.model.prior.pdf[i].ppf(cube[i]) for i in range(self.n_sampled)])
-            #     theta_full = np.empty_like(cube_full)
-            #     theta_full[self.n_hyperparam:] = theta
-            #     theta_full[0] = scale
-            #     return theta_full
-            # else:
-            #     cube = cube_full
-            #     theta = np.empty_like(cube)
-            #     for i, xi in enumerate(np.array(cube)[self.ordering]):
-            #         theta[i] = self.model.prior.pdf[i].ppf(xi)
-            #     return theta
+        def prior(circle):
+            if self.beta == 0:
+                cube = circle
+                theta = cube * x_diff + x_lower
+            else:
+                cube = (circle < self.beta * x_lower) * (circle / self.beta) + (
+                        (circle >= self.beta * x_lower) & (circle < self.beta * x_upper + (1 - self.beta))) * (
+                               circle + (1 - self.beta) * x_lower / x_diff) / (self.beta + (1 - self.beta) / x_diff) + (
+                               circle >= self.beta * x_upper + (1 - self.beta)) * (circle - (1 - self.beta)) / self.beta
+                theta = np.array([self.model.prior.pdf[i].ppf(cube[i]) for i in range(self.n_sampled)])
+            return theta
 
         if is_main_process():
             self.dump_paramnames(self.raw_prefix)
