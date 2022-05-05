@@ -131,4 +131,4 @@ sampler:
   polychord:
     write_resume: False
     read_resume: False
-    nlive: 100
+    nlive: 10

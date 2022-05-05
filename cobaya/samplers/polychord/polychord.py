@@ -30,6 +30,7 @@ from scipy import stats
 import tensorflow as tf
 from keras import layers
 
+
 class polychord(Sampler):
     r"""
     PolyChord sampler \cite{Handley:2015fda,2015MNRAS.453.4384H}, a nested sampler
@@ -96,17 +97,30 @@ class polychord(Sampler):
                           "To install it, run 'cobaya-install polychord --%s "
                           "[packages_path]'", packages_path_arg)
         # Prepare arguments and settings
-        num_states = 7
-        num_actions = 1
-        inputs = layers.Input(shape=(num_states,))
-        out = layers.Dense(256, activation="relu")(inputs)
-        out = layers.Dense(256, activation="relu")(out)
-        outputs = layers.Dense(num_actions, activation="tanh")(out)
+        if self.training:
+            self.buffer = self.training_objects["buffer"]
+            self.actor_model = self.training_objects["actor"]
+            self.critic_model = self.training_objects["critic"]
+            self.target_critic = self.training_objects["target_critic"]
+            self.target_actor = self.training_objects["target_actor"]
+            self.tau = self.training_objects["tau"]
+            self.episodic_reward = self.training_objects["episodic_reward"]
+            self.state = self.state = np.array([1, 0, 0, 0, 0, 0, 0])
+            tf_prev_state = tf.expand_dims(tf.convert_to_tensor(self.state), 0)
+            self.action = self.actor_model(tf_prev_state)[0]
+        elif self.proposal_mode == "external":
+            num_states = 7
+            num_actions = 1
+            inputs = layers.Input(shape=(num_states,))
+            out = layers.Dense(256, activation="relu")(inputs)
+            out = layers.Dense(256, activation="relu")(out)
+            outputs = layers.Dense(num_actions, activation="tanh")(out)
 
-        outputs = (1 + outputs) / 2
-        actor_model = tf.keras.Model(inputs, outputs)
-        actor_model.load_weights("/mnt/c/Users/Yaqin/PycharmProjects/cobaya/cobaya/actor_weights.h5")
-        self.actor_model = actor_model
+            outputs = (1 + outputs) / 2
+            actor_model = tf.keras.Model(inputs, outputs)
+            actor_model.load_weights("/mnt/c/Users/Yaqin/PycharmProjects/cobaya/cobaya/actor_weights.h5")
+            self.actor_model = actor_model
+
         self.reorder = False
         nparam_dict = {None: 0, "beta": 1, "external": 0, "scale": 1, "gamma": 2, "delta": 2}
         self.n_hyperparam = nparam_dict[self.proposal_mode]
@@ -269,40 +283,66 @@ class polychord(Sampler):
                                self.n_likes])
         self.logZ, self.logZstd = logZ, logZstd
         self._correct_unphysical_fraction()
-        with open('{}/default.stats'.format(self.base_dir), 'r') as f:
-            for _ in range(15):
+        if self.proposal_mode == "external" or self.training == True:
+            with open('{}/default.stats'.format(self.base_dir), 'r') as f:
+                for _ in range(15):
+                    line = f.readline()
+                logZs = []
+                logZerrs = []
+                while line[:5] == 'log(Z':
+                    logZs.append(float(re.findall(r'=(.*)', line
+                                                  )[0].split()[0]))
+                    logZerrs.append(float(re.findall(r'=(.*)', line
+                                                     )[0].split()[2]))
+
+                    line = f.readline()
+
+                for _ in range(5):
+                    f.readline()
+
+                ncluster = len(logZs)
+                nposterior = int(f.readline().split()[1])
+                nequals = int(f.readline().split()[1])
+                n_dead = int(f.readline().split()[1])
+                nlive = int(f.readline().split()[1])
+                # Protect against ValueError when .stats file has ******* for nlike
+                # (occurs when nlike is too big).
+                try:
+                    nlike = int(f.readline().split()[1])
+                except ValueError:
+                    nlike = 1e30
+                logX = float(f.readline().split()[1])
                 line = f.readline()
-            logZs = []
-            logZerrs = []
-            while line[:5] == 'log(Z':
-                logZs.append(float(re.findall(r'=(.*)', line
-                                              )[0].split()[0]))
-                logZerrs.append(float(re.findall(r'=(.*)', line
-                                                 )[0].split()[2]))
+                line = line.split()
+                i = line.index('(')
+                avnlike = [float(x) for x in line[1:i]]
+            state = np.array([ncluster, nposterior, nequals, n_dead, nlive, nlike, avnlike[0]])
+            tf_prev_state = tf.expand_dims(tf.convert_to_tensor(state), 0)
+            if self.training:
+                # if termination criterion has been met, the end reward should be given
+                # live point log Z < log (precision_criterion ) + cumulative log Z
+                logZ_live = np.log(np.sum(np.exp(live_points[:, -1])) / nlive) + logX
+                if np.isnan(logZ_live) or (logZ_live <= np.log(0.001) + logZ and not np.isinf(logZ_live)):
+                    reward = 100
+                    # Finish line!
+                else:
+                    # otherwise, give reward for taking a valid step and punish for over-eager clustering
+                    reward = -1 - 100 * (ncluster - 1)
+                self.buffer.record((self.state, self.action, reward, state))
+                self.action = self.actor_model(tf_prev_state)
+                self.beta = self.action
+                self.state = state
+                self.episodic_reward += reward
+                self.buffer.learn()
 
-                line = f.readline()
+                def update_target(target_weights, weights, tau):
+                    for (a, b) in zip(target_weights, weights):
+                        a.assign(b * tau + a * (1 - tau))
 
-            for _ in range(5):
-                f.readline()
-
-            ncluster = len(logZs)
-            nposterior = int(f.readline().split()[1])
-            nequals = int(f.readline().split()[1])
-            n_dead = int(f.readline().split()[1])
-            nlive = int(f.readline().split()[1])
-            # Protect against ValueError when .stats file has ******* for nlike
-            # (occurs when nlike is too big).
-            try:
-                nlike = int(f.readline().split()[1])
-            except ValueError:
-                nlike = 1e30
-            line = f.readline()
-            line = line.split()
-            i = line.index('(')
-            avnlike = [float(x) for x in line[1:i]]
-        state = np.array([ncluster, nposterior, nequals, n_dead, nlive, nlike, avnlike[0]])
-        tf_prev_state = tf.expand_dims(tf.convert_to_tensor(state), 0)
-        self.beta -= self.actor_model.predict(tf_prev_state) * 0.1
+                update_target(self.target_actor.variables, self.actor_model.variables, self.tau)
+                update_target(self.target_critic.variables, self.critic_model.variables, self.tau)
+            elif self.proposal_mode == "external":
+                self.beta = self.actor_model.predict(tf_prev_state)
 
         # Callback function
         if self.callback_function is not None:
