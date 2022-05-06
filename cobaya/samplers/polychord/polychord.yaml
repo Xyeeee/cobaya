@@ -69,3 +69,4 @@ read_resume: True
 write_stats: True
 write_live: True
 write_dead: True
+synchronous: False
