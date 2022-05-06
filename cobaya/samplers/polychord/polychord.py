@@ -230,7 +230,7 @@ class polychord(Sampler):
                    "precision_criterion", "max_ndead", "boost_posterior", "feedback",
                    "logzero", "posteriors", "equals", "compression_factor",
                    "cluster_posteriors", "write_resume", "read_resume", "write_stats",
-                   "write_live", "write_dead", "base_dir",
+                   "write_live", "write_dead", "base_dir", "synchronous",
                    "feedback", "read_resume", "base_dir", "file_root", "seed", "grade_dims", "grade_frac"]
         # As stated above, num_repeats is ignored, so let's not pass it
         pc_args.pop(pc_args.index("num_repeats"))
@@ -429,7 +429,12 @@ class polychord(Sampler):
             return theta_full
 
         def prior(circle):
-            if self.beta == 0:
+            if self.proposal_mode is None and not self.training:
+                theta = np.empty_like(circle)
+                for i, xi in enumerate(np.array(circle)[self.ordering]):
+                    theta[i] = self.model.prior.pdf[i].ppf(xi)
+                return theta
+            elif self.beta == 0:
                 cube = circle
                 theta = cube * x_diff + x_lower
             else:
