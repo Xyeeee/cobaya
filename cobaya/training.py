@@ -125,6 +125,7 @@ def get_critic():
 
 
 # ---------------------Setting Training hyper parameters---------------------------
+batch = 0
 std_dev = 0.2
 
 # Defining actor and critic models
@@ -133,6 +134,10 @@ critic_model = get_critic()
 
 target_actor = get_actor()
 target_critic = get_critic()
+if batch != 0:
+    actor_model.load_weights("actor_weights.h5")
+    critic_model.load_weights("critic_weights.h5")
+
 
 # Making the weights equal initially
 target_actor.set_weights(actor_model.get_weights())
@@ -145,7 +150,7 @@ actor_lr = 0.01
 critic_optimizer = tf.keras.optimizers.Adam(critic_lr)
 actor_optimizer = tf.keras.optimizers.Adam(actor_lr)
 
-total_episodes = 4
+total_episodes = 10
 # Discount factor for future rewards
 gamma = 0.7
 # Used to update target networks
@@ -166,7 +171,7 @@ training_dict = {"buffer": buffer, "actor": actor_model, "critic": critic_model,
 for ep in range(total_episodes):
     run("NS_default.yaml",
         packages_path="../packages",
-        output="output_folder/{}".format(ep),
+        output="output_folder_{}/{}".format(batch, ep),
         debug=False,
         stop_at_error=False,
         resume=False,
@@ -181,11 +186,17 @@ for ep in range(total_episodes):
         training_objects=training_dict
         )
     ep_reward_list.append(training_dict["episodic_reward"])
+
     training_dict["episodic_reward"] = 0
+
+    actor_model.save_weights("actor_weights.h5")
+    critic_model.save_weights("critic_weights.h5")
+    target_actor.save_weights("actor_target_weights.h5")
+    target_critic.save_weights("critic_target_weights.h5")
 
 # Storing the output reward list to json file
 file_path = "/reward.json"
-json.dump(ep_reward_list, codecs.open(file_path, 'w', encoding='utf-8'),
+json.dump(ep_reward_list, codecs.open(file_path, 'w+', encoding='utf-8'),
           separators=(',', ':'),
           sort_keys=True,
           indent=4)

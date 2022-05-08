@@ -328,9 +328,11 @@ class polychord(Sampler):
                 else:
                     # otherwise, give reward for taking a valid step and punish for over-eager clustering
                     reward = -1 - 100 * (ncluster - 1)
+                print("=====Current Step Reward:{}!!===========".format(reward))
                 self.buffer.record((self.state, self.action, reward, state))
                 self.action = self.actor_model(tf_prev_state)
                 self.beta = self.action
+                print("=====Next action(beta) value:{}!!==========".format(self.beta))
                 self.state = state
                 self.episodic_reward += reward
                 self.buffer.learn()
