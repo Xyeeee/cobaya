@@ -429,6 +429,7 @@ class polychord(Sampler):
             return theta_full
 
         def prior(circle):
+            circle = np.array([circle[ind] for ind in self.ordering])
             if self.proposal_mode is None and not self.training:
                 theta = np.empty_like(circle)
                 for i, xi in enumerate(np.array(circle)[self.ordering]):
